@@ -1,0 +1,19 @@
+# Cấu hình triển khai Google App Engine (Node.js 20)
+runtime: nodejs20
+instance_class: F2
+
+# Biến môi trường hệ thống
+env_variables:
+  NODE_ENV: 'production'
+  # Điền chuỗi kết nối MongoDB Atlas hoặc cấu hình qua Secret Manager
+  # MONGODB_URI: 'mongodb+srv://...'
+  # JWT_SECRET: 'super_secret_restaurant_cloud_key_2026'
+  # VIETQR_BANK_ID: 'MB'
+  # VIETQR_ACCOUNT_NO: '0987654321'
+  # VIETQR_ACCOUNT_NAME: 'NHA HANG AM THUC VIET'
+
+# Tự động scale
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+  target_cpu_utilization: 0.65

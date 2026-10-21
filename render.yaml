@@ -1,0 +1,30 @@
+services:
+  # Backend Node.js Express + Socket.IO Web Service
+  - type: web
+    name: restaurant-cloud-backend
+    env: node
+    plan: free
+    region: singapore # Chọn Singapore để tốc độ mạng từ Việt Nam nhanh nhất
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false # Nhập chuỗi kết nối MongoDB Atlas trên Dashboard Render
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: VIETQR_BANK_ID
+        value: MB
+      - key: VIETQR_ACCOUNT_NO
+        value: "0987654321"
+      - key: VIETQR_ACCOUNT_NAME
+        value: "NHA HANG AM THUC VIET"
+      - key: CLIENT_URL
+        value: "*"
