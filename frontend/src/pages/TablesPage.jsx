@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Users,
   Plus,
@@ -283,7 +283,7 @@ export default function TablesPage() {
                     /* Nút Báo Có Khách & Mở Bàn (Không cho bấm gọi món ngay) */
                     <button
                       onClick={() => setOpenTableModal({ open: true, table, guestCount: 4, error: '' })}
-                      className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20 active:scale-95 transition-all"
+                      className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all"
                     >
                       <UserCheck className="w-3.5 h-3.5" /> Báo Có Khách (Mở Bàn)
                     </button>
@@ -291,7 +291,7 @@ export default function TablesPage() {
                     <>
                       <button
                         onClick={() => setActiveTableForOrder(table)}
-                        className="py-1.5 px-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95"
+                        className="py-1.5 px-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
                       >
                         <Plus className="w-3.5 h-3.5" /> Gọi Món
                       </button>

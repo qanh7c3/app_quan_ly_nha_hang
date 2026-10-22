@@ -21,7 +21,7 @@ exports.getMenuItems = async (req, res) => {
 
     const items = await MenuItem.find(filter)
       .populate('categoryId', 'name')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: 1 });
 
     res.json({ success: true, data: items });
   } catch (error) {
@@ -29,34 +29,58 @@ exports.getMenuItems = async (req, res) => {
   }
 };
 
-// Lấy bảng phân tích giá cost và tỷ suất lợi nhuận từng món ăn
+// Lấy bảng phân tích giá cost và tỷ suất lợi nhuận từng món ăn (Nhiệm vụ 3)
 exports.getMenuCostAnalysis = async (req, res) => {
   try {
     const items = await MenuItem.find().populate('categoryId', 'name');
     const analysis = items.map(item => {
-      // Tính giá cost từ recipe nếu có
+      // 1. Giá vốn (Cost price) lấy từ costPrice (hoặc tính từ recipe)
       let calculatedCost = item.costPrice || 0;
       if (item.recipe && item.recipe.length > 0) {
         const recipeSum = item.recipe.reduce((sum, r) => sum + (r.estimatedCost || 0), 0);
-        if (recipeSum > 0) calculatedCost = recipeSum;
+        if (recipeSum > 0 && calculatedCost === 0) calculatedCost = recipeSum;
       }
-      const grossProfit = Math.max(0, item.price - calculatedCost);
-      const marginPercent = item.price > 0 ? Math.round((grossProfit / item.price) * 100) : 0;
+
+      // 2. Giá bán (Selling price) lấy từ price
+      const sellingPrice = item.price || 0;
+
+      // 3. Lợi nhuận gộp: Gross Profit = Giá bán - Giá vốn
+      const grossProfit = Math.max(0, sellingPrice - calculatedCost);
+
+      // 4. Biên lợi nhuận gộp (% Margin) = ((Giá bán - Giá vốn) / Giá bán) * 100
+      const marginPercent = sellingPrice > 0 ? Number(((grossProfit / sellingPrice) * 100).toFixed(2)) : 0;
 
       return {
         _id: item._id,
         name: item.name,
-        category: item.categoryId?.name || 'Khác',
-        price: item.price,
+        category: item.categoryId?.name || 'Món ăn gia đình',
+        price: sellingPrice,
         costPrice: calculatedCost,
         grossProfit,
         marginPercent,
         recipeCount: item.recipe?.length || 0,
-        isAvailable: item.isAvailable
+        isAvailable: item.isAvailable,
+        imageUrl: item.imageUrl
       };
     });
 
-    res.json({ success: true, data: analysis });
+    // Thống kê tổng hợp toàn hệ thống
+    const totalMenuPrice = analysis.reduce((sum, item) => sum + item.price, 0);
+    const totalMenuCost = analysis.reduce((sum, item) => sum + item.costPrice, 0);
+    const totalGrossProfit = totalMenuPrice - totalMenuCost;
+    const avgMarginPercent = totalMenuPrice > 0 ? Number(((totalGrossProfit / totalMenuPrice) * 100).toFixed(2)) : 0;
+
+    res.json({
+      success: true,
+      data: analysis,
+      summary: {
+        totalItemsCount: analysis.length,
+        totalMenuPrice,
+        totalMenuCost,
+        totalGrossProfit,
+        avgMarginPercent
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -94,7 +118,7 @@ exports.createMenuItem = async (req, res) => {
   }
 };
 
-// Cập nhật trạng thái còn món / hết món
+// Cập nhật trạng thái còn món / hết món (1 chạm từ Quản lý kho hoặc POS)
 exports.toggleAvailability = async (req, res) => {
   try {
     const { id } = req.params;
@@ -104,7 +128,17 @@ exports.toggleAvailability = async (req, res) => {
     item.isAvailable = !item.isAvailable;
     await item.save();
 
-    res.json({ success: true, data: item });
+    // Phát sự kiện Socket.IO để POS và KDS tự động cập nhật
+    const io = req.app.get('socketio');
+    if (io) {
+      io.emit('menu:availability_changed', item);
+    }
+
+    res.json({
+      success: true,
+      data: item,
+      message: `Đã ${item.isAvailable ? 'mở phục vụ' : 'tạm ngừng phục vụ'} món ${item.name} trên POS`
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

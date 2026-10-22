@@ -16,7 +16,8 @@ import {
   Search,
   Calendar,
   X,
-  Eye
+  Eye,
+  FileText
 } from 'lucide-react';
 import {
   getTables,
@@ -34,6 +35,9 @@ export default function CashierPage() {
   const [occupiedTables, setOccupiedTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
   const [invoicePreview, setInvoicePreview] = useState(null);
+
+  // Khổ in nhiệt: K80 (80mm) hoặc K58 (58mm)
+  const [printPaperWidth, setPrintPaperWidth] = useState('k80');
 
   // Khuyến mãi & Phụ thu
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -158,17 +162,16 @@ export default function CashierPage() {
     let memberDiscountPercent = 0;
     if (memberTier === 'silver') memberDiscountPercent = 5;
     else if (memberTier === 'gold') memberDiscountPercent = 10;
-    else if (memberTier === 'vip') memberDiscountPercent = 15;
+    else if (memberTier === 'diamond') memberDiscountPercent = 15;
 
-    const voucherDiscount = Math.round(subtotal * (discountPercent / 100));
-    const memberDiscount = Math.round(subtotal * (memberDiscountPercent / 100));
-    const totalDiscount = voucherDiscount + memberDiscount;
+    const totalDiscountRate = Math.min(100, discountPercent + memberDiscountPercent);
+    const discountAmount = Math.round((subtotal * totalDiscountRate) / 100);
 
-    const taxable = Math.max(0, subtotal - totalDiscount + Number(surchargeAmount));
-    const vat = Math.round(taxable * (vatPercent / 100));
-    const final = taxable + vat;
+    const amountAfterDiscount = Math.max(0, subtotal - discountAmount + Number(surchargeAmount));
+    const vatAmount = Math.round((amountAfterDiscount * vatPercent) / 100);
+    const finalAmount = amountAfterDiscount + vatAmount;
 
-    return { subtotal, discountAmount: totalDiscount, vatAmount: vat, finalAmount: final };
+    return { subtotal, discountAmount, vatAmount, finalAmount };
   };
 
   const { subtotal, discountAmount, vatAmount, finalAmount } = calculateFinalTotals();
@@ -184,14 +187,15 @@ export default function CashierPage() {
 
       const res = await settlePayment({
         orderId,
-        discountAmount,
-        memberTier,
-        vatAmount,
-        surcharge: surchargeAmount,
-        surchargeReason,
-        finalAmount,
+        tableId: selectedTable._id,
         paymentMethod,
-        splitDetails: paymentMethod === 'split' ? { cashAmount: Number(splitCash), transferAmount: Number(splitTransfer) } : {}
+        discountAmount,
+        discountReason: discountPercent > 0 ? `Giảm ${discountPercent}%` : '',
+        vatPercent,
+        memberTier,
+        surcharge: surchargeAmount > 0 ? { amount: Number(surchargeAmount), reason: surchargeReason || 'Phụ thu' } : null,
+        splitDetails: paymentMethod === 'split' ? { cash: splitCash, bankTransfer: splitTransfer } : null,
+        cashierName: currentShift?.cashierName || 'Trần Thu Ngân'
       });
 
       if (res.data.success) {
@@ -209,7 +213,7 @@ export default function CashierPage() {
     }
   };
 
-  // In bill
+  // In hóa đơn nhiệt
   const handlePrintReceipt = () => {
     window.print();
   };
@@ -218,85 +222,119 @@ export default function CashierPage() {
   const handleOpenShift = async (e) => {
     e.preventDefault();
     try {
-      await openShift({ openingCash: openingCashInput, cashierName: 'Trần Thu Ngân' });
-      alert('Mở ca làm việc thành công!');
-      fetchShiftData();
+      const res = await openShift({
+        openingCash: openingCashInput,
+        cashierName: 'Trần Thu Ngân'
+      });
+      if (res.data.success) {
+        alert('Mở ca làm việc thành công!');
+        fetchShiftData();
+      }
     } catch (err) {
-      alert(err.response?.data?.message || err.message);
+      alert('Lỗi mở ca: ' + err.message);
     }
   };
 
-  // Chốt ca
+  // Kết thúc ca
   const handleCloseShift = async (e) => {
     e.preventDefault();
     try {
-      await closeShift({ actualCashInDrawer: closingCashInput, notes: closingNotes });
-      alert('Chốt ca và bàn giao két tiền thành công!');
-      fetchShiftData();
+      const res = await closeShift({
+        actualCashAtClosing: closingCashInput,
+        notes: closingNotes
+      });
+      if (res.data.success) {
+        alert('Đã kết ca và chốt sổ thành công!');
+        fetchShiftData();
+      }
     } catch (err) {
-      alert(err.response?.data?.message || err.message);
+      alert('Lỗi kết ca: ' + err.message);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Thu Ngân Hiện Đại */}
-      <div className="bg-white/90 backdrop-blur-md p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold shadow-sm">
-            <Receipt className="w-6 h-6" />
+      {/* Header Quầy Thu Ngân Hiện Đại */}
+      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-teal-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-teal-500/30">
+            <Receipt className="w-7 h-7" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-slate-900">Quầy Thu Ngân & Thanh Toán MB Bank</h2>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                POS & In Hóa Đơn Chuẩn
+              <h2 className="text-xl font-extrabold tracking-tight">Hệ Thống Thu Ngân & Xuất Hóa Đơn (POS Cashier)</h2>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-400/30">
+                Cloud POS
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Tài khoản MB Bank: <b>{BANK_INFO.accountNo}</b> ({BANK_INFO.accountName}) • In hóa đơn chuẩn 80mm • Xem lịch sử tất cả hóa đơn
+            <p className="text-xs text-teal-200/90 mt-1">
+              Thanh toán đa phương thức • Quét VietQR MB Bank tự động • In hóa đơn nhiệt K80/K58 • Lịch sử hóa đơn • Quản lý ca & két tiền
             </p>
           </div>
         </div>
 
-        {/* 3 Tab con: Thanh toán, Lịch sử hóa đơn, Két tiền */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl text-xs font-bold">
-          <button
-            onClick={() => setActiveSubTab('billing')}
-            className={`px-3.5 py-2 rounded-xl transition-all ${
-              activeSubTab === 'billing' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Thanh Toán ({occupiedTables.length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveSubTab('history');
-              fetchHistoryData();
-            }}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'history' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" /> Lịch Sử Hóa Đơn ({invoicesHistory.length})
-          </button>
-          <button
-            onClick={() => setActiveSubTab('shift')}
-            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'shift' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5" /> Két Tiền & Giao Ca
-          </button>
+        {/* Chuyển đổi tab con và khổ in */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Chọn khổ giấy in nhiệt K80 / K58 */}
+          <div className="flex items-center bg-black/40 p-1 rounded-xl text-xs font-bold border border-white/10">
+            <span className="text-[11px] text-slate-300 px-2 flex items-center gap-1">
+              <Printer className="w-3 h-3 text-teal-400" /> Khổ in:
+            </span>
+            <button
+              onClick={() => setPrintPaperWidth('k80')}
+              className={`px-2.5 py-1 rounded-lg transition-all ${
+                printPaperWidth === 'k80' ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              K80 (80mm)
+            </button>
+            <button
+              onClick={() => setPrintPaperWidth('k58')}
+              className={`px-2.5 py-1 rounded-lg transition-all ${
+                printPaperWidth === 'k58' ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              K58 (58mm)
+            </button>
+          </div>
+
+          {/* 3 Tab chức năng */}
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl text-xs font-bold border border-white/10">
+            <button
+              onClick={() => setActiveSubTab('billing')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${
+                activeSubTab === 'billing' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Thanh Toán ({occupiedTables.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab('history')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                activeSubTab === 'history' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" /> Lịch Sử ({invoicesHistory.length})
+            </button>
+            <button
+              onClick={() => setActiveSubTab('shift')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                activeSubTab === 'shift' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" /> Quản Lý Ca
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Thông báo thanh toán thành công */}
       {paymentSuccessData && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-3 text-emerald-900 shadow-sm animate-pulse">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-3xl flex items-center justify-between text-xs animate-fade-in shadow-sm">
           <div className="flex items-center gap-3">
             <CheckCircle className="w-6 h-6 text-emerald-600 shrink-0" />
             <div>
-              <p className="font-extrabold text-sm">
+              <p className="font-extrabold text-emerald-900 text-sm">
                 Thanh toán thành công hóa đơn #{paymentSuccessData.invoiceCode} ({paymentSuccessData.finalAmount?.toLocaleString('vi-VN')} đ)!
               </p>
               <p className="text-xs text-emerald-700">
@@ -306,9 +344,9 @@ export default function CashierPage() {
           </div>
           <button
             onClick={handlePrintReceipt}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-emerald-600/25 active:scale-95 transition-all"
           >
-            <Printer className="w-4 h-4" /> In Hóa Đơn Cho Khách
+            <Printer className="w-4 h-4" /> In Hóa Đơn Cho Khách ({printPaperWidth.toUpperCase()})
           </button>
         </div>
       )}
@@ -320,7 +358,7 @@ export default function CashierPage() {
           <div className="lg:col-span-4 space-y-3">
             <h3 className="font-extrabold text-sm text-slate-800 px-1">Chọn bàn cần thanh toán</h3>
             {occupiedTables.length === 0 ? (
-              <div className="p-12 bg-white/80 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs">
+              <div className="p-12 bg-white/90 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs shadow-sm">
                 Hiện không có bàn nào đang chờ thanh toán.
               </div>
             ) : (
@@ -330,8 +368,8 @@ export default function CashierPage() {
                   onClick={() => handleSelectTable(t)}
                   className={`p-4 rounded-2xl border-2 cursor-pointer flex items-center justify-between transition-all ${
                     selectedTable?._id === t._id
-                      ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
-                      : 'bg-white hover:border-slate-300'
+                      ? 'border-emerald-500 bg-emerald-50/60 shadow-md'
+                      : 'bg-white hover:border-slate-300 shadow-xs'
                   }`}
                 >
                   <div>
@@ -346,25 +384,28 @@ export default function CashierPage() {
             )}
           </div>
 
-          {/* Cột phải: Hóa đơn chi tiết */}
+          {/* Cột phải: Chi tiết hóa đơn & Quét VietQR MB Bank */}
           <div className="lg:col-span-8">
             {selectedTable && invoicePreview?.order ? (
               <div className="bg-white/95 rounded-3xl border border-slate-200/90 p-6 shadow-sm space-y-5">
-                <div className="flex justify-between items-center border-b pb-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
                   <div>
-                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md">
+                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
                       Mã: {invoicePreview.order.orderCode}
                     </span>
                     <h3 className="text-base font-black text-slate-900 mt-1">
                       Thanh Toán: {selectedTable.tableNumber} ({selectedTable.zone} - {selectedTable.guestCount || 2} khách)
                     </h3>
                   </div>
-                  <button
-                    onClick={handlePrintReceipt}
-                    className="px-3.5 py-2 border rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
-                  >
-                    <Printer className="w-3.5 h-3.5" /> In Phiếu Tạm Tính
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePrintReceipt}
+                      className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-teal-400" /> In Phiếu Tạm Tính ({printPaperWidth.toUpperCase()})
+                    </button>
+                  </div>
                 </div>
 
                 {/* Danh sách món ăn */}
@@ -391,12 +432,12 @@ export default function CashierPage() {
                     <select
                       value={memberTier}
                       onChange={(e) => setMemberTier(e.target.value)}
-                      className="w-full p-2 bg-white border rounded-xl font-bold text-indigo-700"
+                      className="w-full p-2 bg-white border rounded-xl font-semibold"
                     >
-                      <option value="none">Khách Thường (0%)</option>
-                      <option value="silver">Bạc (Giảm 5%)</option>
-                      <option value="gold">Vàng (Giảm 10%)</option>
-                      <option value="vip">VIP Khách Quen (Giảm 15%)</option>
+                      <option value="none">Khách thường (0%)</option>
+                      <option value="silver">Bạc - Silver (5%)</option>
+                      <option value="gold">Vàng - Gold (10%)</option>
+                      <option value="diamond">Kim cương - VIP (15%)</option>
                     </select>
                   </div>
 
@@ -478,7 +519,7 @@ export default function CashierPage() {
 
                 {/* Quét Mã VietQR MB Bank của người dùng */}
                 {(paymentMethod === 'vietqr' || paymentMethod === 'split') && (
-                  <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="p-4 bg-slate-900 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg border border-teal-500/30">
                     <div className="text-xs space-y-1.5 text-center sm:text-left">
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 uppercase">
                         Mã VietQR Tự Động (MB Bank)
@@ -504,16 +545,18 @@ export default function CashierPage() {
                   </div>
                 )}
 
+                {/* Nút hành động chính theo Button Hierarchy */}
                 <button
                   disabled={isProcessing}
                   onClick={handleSettle}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/25 active:scale-95 transition-all"
+                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
-                  XÁC NHẬN ĐÃ THU TIỀN & GIẢI PHÓNG BÀN
+                  <CheckCircle className="w-5 h-5" />
+                  {isProcessing ? 'ĐANG XỬ LÝ THANH TOÁN...' : 'XÁC NHẬN ĐÃ THU TIỀN & GIẢI PHÓNG BÀN'}
                 </button>
               </div>
             ) : (
-              <div className="p-20 bg-white/80 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs">
+              <div className="p-20 bg-white/90 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs shadow-sm">
                 Chọn một bàn bên trái để xem chi tiết hóa đơn và quét mã thanh toán MB Bank.
               </div>
             )}
@@ -521,7 +564,7 @@ export default function CashierPage() {
         </div>
       ) : activeSubTab === 'history' ? (
         /* TAB 2: LỊCH SỬ CHỨA TẤT CẢ HÓA ĐƠN */
-        <div className="bg-white/95 rounded-3xl border border-slate-200 p-6 space-y-4">
+        <div className="bg-white/95 rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
             <div>
               <h3 className="font-extrabold text-base text-slate-900">Toàn Bộ Lịch Sử Hóa Đơn Thanh Toán</h3>
@@ -537,14 +580,14 @@ export default function CashierPage() {
                   value={historySearch}
                   onChange={(e) => setHistorySearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchHistoryData()}
-                  className="pl-9 pr-3 py-1.5 text-xs border rounded-xl w-52"
+                  className="pl-9 pr-3 py-2 text-xs border rounded-xl w-56 focus:outline-none focus:border-teal-500"
                 />
               </div>
               <button
                 onClick={fetchHistoryData}
-                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-xl"
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl active:scale-95 transition-all"
               >
-                Tìm
+                Tìm kiếm
               </button>
             </div>
           </div>
@@ -575,12 +618,12 @@ export default function CashierPage() {
                         {new Date(inv.paidAt || inv.createdAt).toLocaleTimeString('vi-VN')}, {new Date(inv.paidAt || inv.createdAt).toLocaleDateString('vi-VN')}
                       </td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+                        <span className={`px-2 py-0.5 rounded-md font-bold uppercase text-[10px] ${
                           inv.paymentMethod === 'vietqr' ? 'bg-blue-100 text-blue-800' :
                           inv.paymentMethod === 'cash' ? 'bg-emerald-100 text-emerald-800' :
                           'bg-purple-100 text-purple-800'
                         }`}>
-                          {inv.paymentMethod}
+                          {inv.paymentMethod === 'vietqr' ? 'MB Bank' : inv.paymentMethod}
                         </span>
                       </td>
                       <td className="p-3 text-right font-black text-emerald-600 text-sm">
@@ -589,9 +632,9 @@ export default function CashierPage() {
                       <td className="p-3 text-center">
                         <button
                           onClick={() => setViewInvoiceModal({ open: true, invoice: inv })}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs inline-flex items-center gap-1"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-900 hover:text-white rounded-xl text-[11px] font-bold text-slate-700 transition-all active:scale-95"
                         >
-                          <Eye className="w-3.5 h-3.5" /> Xem & In Lại
+                          <Eye className="w-3.5 h-3.5 inline mr-1" /> Chi Tiết & In
                         </button>
                       </td>
                     </tr>
@@ -603,14 +646,14 @@ export default function CashierPage() {
         </div>
       ) : (
         /* TAB 3: QUẢN LÝ CA LÀM VIỆC & KÉT TIỀN */
-        <div className="bg-white/95 rounded-3xl border border-slate-200 p-6 max-w-2xl mx-auto space-y-6">
+        <div className="bg-white/95 rounded-3xl border border-slate-200 p-6 max-w-2xl mx-auto space-y-6 shadow-sm">
           <div className="flex items-center gap-3 border-b pb-4">
             <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
               <Briefcase className="w-6 h-6" />
             </div>
             <div>
               <h3 className="font-black text-base text-slate-900">Quản Lý Ca Làm Việc & Két Tiền</h3>
-              <p className="text-xs text-slate-400">Đối soát tiền mặt, tiền chuyển khoản và bàn giao ca</p>
+              <p className="text-xs text-slate-400">Đối soát tiền mặt, tiền chuyển khoản MB Bank và bàn giao ca</p>
             </div>
           </div>
 
@@ -669,7 +712,7 @@ export default function CashierPage() {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2"
+                  className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                   <Lock className="w-4 h-4" /> KẾT THÚC CA & BÀN GIAO KÉT
                 </button>
@@ -693,7 +736,7 @@ export default function CashierPage() {
 
               <button
                 type="submit"
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2"
+                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 active:scale-95 transition-all"
               >
                 <Unlock className="w-4 h-4" /> BẮT ĐẦU MỞ CA THU NGÂN
               </button>
@@ -729,7 +772,7 @@ export default function CashierPage() {
               </div>
               <div className="flex justify-between">
                 <span>Phương thức:</span>
-                <span className="font-bold uppercase">{viewInvoiceModal.invoice.paymentMethod}</span>
+                <span className="font-bold uppercase">{viewInvoiceModal.invoice.paymentMethod === 'vietqr' ? 'MB Bank' : viewInvoiceModal.invoice.paymentMethod}</span>
               </div>
               <div className="flex justify-between border-t pt-2 text-sm font-black text-slate-900">
                 <span>Thành tiền:</span>
@@ -740,13 +783,13 @@ export default function CashierPage() {
             <div className="pt-2 flex gap-2">
               <button
                 onClick={handlePrintReceipt}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
-                <Printer className="w-4 h-4" /> In Lại Hóa Đơn
+                <Printer className="w-4 h-4" /> In Hóa Đơn ({printPaperWidth.toUpperCase()})
               </button>
               <button
                 onClick={() => setViewInvoiceModal({ open: false, invoice: null })}
-                className="px-4 py-2.5 border rounded-xl text-xs font-semibold"
+                className="px-4 py-3 border rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
               >
                 Đóng
               </button>
@@ -755,13 +798,18 @@ export default function CashierPage() {
         </div>
       )}
 
-      {/* BẢN IN HÓA ĐƠN NHIỆT 80MM CHUẨN NGOÀI ĐỜI (ẨN TRÊN MÀN HÌNH, HIỂN THỊ KHI IN) */}
-      <div id="printable-receipt" className="hidden print:block text-slate-900 font-mono text-xs leading-tight">
+      {/* BẢN IN HÓA ĐƠN NHIỆT K80 (80MM) / K58 (58MM) CHUẨN ĐẶC TẢ NHÀ HÀNG NGOÀI ĐỜI */}
+      <div
+        id="printable-receipt"
+        className={`hidden print:block text-slate-900 font-mono text-xs leading-tight ${
+          printPaperWidth === 'k58' ? 'print-k58' : 'print-k80'
+        }`}
+      >
         <div className="text-center pb-2 border-b border-dashed border-slate-400 space-y-1">
-          <h2 className="font-black text-sm uppercase">VIET RESTAURANT & LOUNGE</h2>
-          <p className="text-[10px]">Đ/c: 128 Phố Ẩm Thực, Quận 1, TP. Hồ Chí Minh</p>
-          <p className="text-[10px]">Hotline: 0963.769.034 • Wifi: VietRestaurant (Pass: 88888888)</p>
-          <p className="font-bold text-xs uppercase pt-1">PHIẾU THANH TOÁN TẠM TÍNH</p>
+          <h2 className="font-black text-sm uppercase tracking-tight">HỆ THỐNG QUẢN LÝ NHÀ HÀNG ĐÁM MÂY - CLOUD POS & KDS</h2>
+          <p className="text-[10px] font-bold">50 Cát Bi, Hải An, Hải Phòng</p>
+          <p className="text-[10px]">Hotline: 0963.769.034 • Wifi: CloudRestaurant (Pass: 88888888)</p>
+          <p className="font-black text-xs uppercase pt-1">PHIẾU THANH TOÁN TẠM TÍNH</p>
         </div>
 
         <div className="py-2 border-b border-dashed border-slate-400 text-[10px] space-y-0.5">
@@ -797,12 +845,12 @@ export default function CashierPage() {
         {/* Tổng tiền */}
         <div className="py-2 border-b border-dashed border-slate-400 text-[10px] space-y-1">
           <div className="flex justify-between">
-            <span>Tiền hàng:</span>
+            <span>Tiền món ăn:</span>
             <span>{(subtotal || viewInvoiceModal.invoice?.subtotal || 0).toLocaleString('vi-VN')} đ</span>
           </div>
           {discountAmount > 0 && (
             <div className="flex justify-between">
-              <span>Giảm giá/Chiết khấu:</span>
+              <span>Giảm giá / Voucher:</span>
               <span>-{(discountAmount || viewInvoiceModal.invoice?.discountAmount || 0).toLocaleString('vi-VN')} đ</span>
             </div>
           )}
@@ -824,13 +872,13 @@ export default function CashierPage() {
 
         {/* Quét QR MB Bank tại chân bill */}
         <div className="text-center pt-2 space-y-1">
-          <p className="text-[10px] font-bold">QUÉT MÃ THANH TOÁN (MB BANK)</p>
+          <p className="text-[10px] font-bold">QUÉT MÃ MB BANK ĐỂ THANH TOÁN</p>
           <img
             src={`https://img.vietqr.io/image/${BANK_INFO.bankId}-${BANK_INFO.accountNo}-compact2.png?amount=${finalAmount || viewInvoiceModal.invoice?.finalAmount || 0}&addInfo=TT%20${invoicePreview?.order?.orderCode || 'BILL'}&accountName=${encodeURIComponent(BANK_INFO.accountName)}`}
             alt="VietQR MB Bank"
             className="w-28 h-28 mx-auto"
           />
-          <p className="text-[9px]">STK: {BANK_INFO.accountNo} - {BANK_INFO.accountName}</p>
+          <p className="text-[9px] font-semibold">STK: {BANK_INFO.accountNo} - {BANK_INFO.accountName}</p>
           <p className="text-[9px] italic pt-1">Cảm ơn Quý khách & Hẹn gặp lại!</p>
         </div>
       </div>

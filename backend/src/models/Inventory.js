@@ -9,7 +9,17 @@ const inventorySchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Thịt/Hải sản', 'Rau củ', 'Gia vị/Đồ khô', 'Đồ uống/Bia', 'Khác'],
+    enum: [
+      'Thịt, Hải Sản & Trứng',
+      'Rau Củ Quả & Nấm',
+      'Rau Thơm & Thực Phẩm Khô',
+      'Gia Vị & Nước Sốt Đóng Chai',
+      'Thịt/Hải sản',
+      'Rau củ',
+      'Gia vị/Đồ khô',
+      'Đồ uống/Bia',
+      'Khác'
+    ],
     default: 'Khác'
   },
   unit: {

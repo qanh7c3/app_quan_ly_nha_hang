@@ -4,11 +4,11 @@
 
 @layer base {
   body {
-    @apply bg-slate-100/90 text-slate-800 antialiased selection:bg-orange-500 selection:text-white min-h-screen;
+    @apply bg-stone-50 text-slate-800 antialiased selection:bg-emerald-500 selection:text-white min-h-screen font-sans;
     background-image: 
-      radial-gradient(at 10% 20%, rgba(249, 115, 22, 0.05) 0px, transparent 50%),
+      radial-gradient(at 10% 20%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
       radial-gradient(at 90% 80%, rgba(99, 102, 241, 0.04) 0px, transparent 50%),
-      radial-gradient(at 50% 50%, rgba(241, 245, 249, 0.9) 0px, transparent 100%);
+      radial-gradient(at 50% 50%, rgba(248, 250, 252, 0.8) 0px, transparent 100%);
   }
 }
 
@@ -28,20 +28,34 @@
   background: #94a3b8;
 }
 
-/* Hiệu ứng in ấn chuyên nghiệp Receipt 80mm */
+/* Hiệu ứng in ấn chuyên nghiệp Receipt K80 (80mm) và K58 (58mm) chuẩn nhà hàng ngoài đời */
 @media print {
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
   #printable-receipt, #printable-receipt * {
-    visibility: visible;
+    visibility: visible !important;
   }
   #printable-receipt {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    margin: 0;
-    padding: 5mm;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 3mm !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    line-height: 1.25 !important;
+  }
+  #printable-receipt.print-k80 {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+  #printable-receipt.print-k58 {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    font-size: 9.5px !important;
+  }
+  #printable-receipt.print-k58 h2 {
+    font-size: 11px !important;
   }
 }
