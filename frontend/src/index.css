@@ -4,7 +4,11 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased selection:bg-orange-500 selection:text-white;
+    @apply bg-slate-100/90 text-slate-800 antialiased selection:bg-orange-500 selection:text-white min-h-screen;
+    background-image: 
+      radial-gradient(at 10% 20%, rgba(249, 115, 22, 0.05) 0px, transparent 50%),
+      radial-gradient(at 90% 80%, rgba(99, 102, 241, 0.04) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, rgba(241, 245, 249, 0.9) 0px, transparent 100%);
   }
 }
 
@@ -22,4 +26,22 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Hiệu ứng in ấn chuyên nghiệp Receipt 80mm */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 5mm;
+  }
 }

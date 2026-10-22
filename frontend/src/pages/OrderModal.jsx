@@ -99,7 +99,8 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
       const res = await createOrUpdateOrder({
         tableId: table._id,
         items: cart,
-        generalNote
+        generalNote,
+        guestCount: table.guestCount || 2
       });
       if (res.data.success) {
         onOrderSuccess(res.data.data);
