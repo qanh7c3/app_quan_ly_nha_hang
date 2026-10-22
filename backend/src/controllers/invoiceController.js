@@ -6,8 +6,8 @@ const MenuItem = require('../models/MenuItem');
 
 const generateVietQR = (amount, orderCode) => {
   const bankId = process.env.VIETQR_BANK_ID || 'MB';
-  const accountNo = process.env.VIETQR_ACCOUNT_NO || '0987654321';
-  const accountName = encodeURIComponent(process.env.VIETQR_ACCOUNT_NAME || 'NHA HANG AM THUC VIET');
+  const accountNo = process.env.VIETQR_ACCOUNT_NO || '0963769034';
+  const accountName = encodeURIComponent(process.env.VIETQR_ACCOUNT_NAME || 'CAO QUOC ANH');
   const addInfo = encodeURIComponent(`TT ${orderCode}`);
   return `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${accountName}`;
 };
@@ -20,11 +20,9 @@ exports.createInvoicePreview = async (req, res) => {
     const order = await Order.findById(orderId).populate('tableId', 'tableNumber zone');
     if (!order) return res.status(404).json({ success: false, message: 'Đơn hàng không tồn tại' });
 
-    // Lọc ra các món chưa bị hủy
     const activeItems = order.items.filter(i => i.status !== 'cancelled');
     const subtotal = activeItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
-    // Tính chiết khấu hội viên nếu có
     let memberDiscountPercent = 0;
     if (memberTier === 'silver') memberDiscountPercent = 5;
     else if (memberTier === 'gold') memberDiscountPercent = 10;
@@ -75,7 +73,7 @@ exports.settlePayment = async (req, res) => {
       cashierId
     } = req.body;
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).populate('tableId', 'tableNumber zone');
     if (!order) return res.status(404).json({ success: false, message: 'Đơn hàng không tồn tại' });
 
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -87,7 +85,7 @@ exports.settlePayment = async (req, res) => {
     const invoice = await Invoice.create({
       invoiceCode,
       orderId: order._id,
-      tableId: order.tableId,
+      tableId: order.tableId._id || order.tableId,
       cashierId: cashierId || null,
       subtotal: order.totalAmount,
       discountAmount: Number(discountAmount),
@@ -125,8 +123,9 @@ exports.settlePayment = async (req, res) => {
       console.error('Lỗi tự động trừ kho nguyên vật liệu:', invErr);
     }
 
-    // Giải phóng bàn chính và các bàn ghép (nếu có)
-    const table = await Table.findById(order.tableId);
+    // Giải phóng bàn chính và các bàn ghép
+    const tableId = order.tableId._id || order.tableId;
+    const table = await Table.findById(tableId);
     if (table) {
       if (table.mergedWith && table.mergedWith.length > 0) {
         await Table.updateMany(
@@ -152,6 +151,42 @@ exports.settlePayment = async (req, res) => {
       data: invoice,
       message: 'Thanh toán hoàn tất, bàn đã được giải phóng và kho nguyên liệu đã được trừ tự động!'
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 3. Lấy toàn bộ lịch sử hóa đơn thanh toán
+exports.getAllInvoices = async (req, res) => {
+  try {
+    const { search, paymentMethod, startDate, endDate } = req.query;
+    let filter = { paymentStatus: 'paid' };
+
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      filter.paymentMethod = paymentMethod;
+    }
+
+    if (search) {
+      filter.$or = [
+        { invoiceCode: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (startDate || endDate) {
+      filter.paidAt = {};
+      if (startDate) filter.paidAt.$gte = new Date(startDate);
+      if (endDate) filter.paidAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
+    }
+
+    const invoices = await Invoice.find(filter)
+      .populate('tableId', 'tableNumber zone')
+      .populate({
+        path: 'orderId',
+        populate: { path: 'items.menuItemId', select: 'name price imageUrl' }
+      })
+      .sort({ paidAt: -1, createdAt: -1 });
+
+    res.json({ success: true, data: invoices, total: invoices.length });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

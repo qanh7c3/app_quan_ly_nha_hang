@@ -16,6 +16,10 @@ const menuItemSchema = new mongoose.Schema({
     required: [true, 'Vui lòng nhập giá món'],
     min: 0
   },
+  costPrice: {
+    type: Number, // Giá vốn ước tính dựa trên nguyên liệu
+    default: 0
+  },
   description: {
     type: String,
     default: ''
@@ -37,18 +41,26 @@ const menuItemSchema = new mongoose.Schema({
     enum: ['kitchen', 'bar'],
     default: 'kitchen'
   },
-  // Định lượng nguyên vật liệu để tự động trừ kho
+  // Định lượng nguyên vật liệu & gia vị để tự động trừ kho
   recipe: [{
     ingredientName: { type: String, required: true },
-    amount: { type: Number, required: true }, // Số lượng tiêu hao
-    unit: { type: String, default: 'kg' }     // Đơn vị
+    amount: { type: Number, required: true },
+    unit: { type: String, default: 'kg' },
+    estimatedCost: { type: Number, default: 0 }
   }],
+  // Hướng dẫn công thức chế biến cho Đầu bếp
+  instructions: {
+    preparation: { type: String, default: '' }, // Sơ chế & chuẩn bị
+    seasoning: { type: String, default: '' },   // Tẩm ướp gia vị
+    cookingSteps: { type: String, default: '' },// Các bước xào/nấu/nướng
+    presentation: { type: String, default: '' } // Trình bày & ra đồ
+  },
   // Cài đặt giờ vàng (Happy Hour)
   happyHour: {
     isActive: { type: Boolean, default: false },
     discountPercent: { type: Number, default: 0 },
-    startHour: { type: Number, default: 14 }, // Ví dụ 14h
-    endHour: { type: Number, default: 17 }    // đến 17h
+    startHour: { type: Number, default: 14 },
+    endHour: { type: Number, default: 17 }
   },
   options: [{
     name: String,

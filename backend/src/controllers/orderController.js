@@ -3,7 +3,51 @@ const Table = require('../models/Table');
 const MenuItem = require('../models/MenuItem');
 const AuditLog = require('../models/AuditLog');
 
-// 1. Tạo đơn hàng mới hoặc thêm món vào bàn
+// 1. Nghiệp vụ Phục vụ: Báo có khách & Mở bàn (Check-in khách tại bàn)
+exports.openTable = async (req, res) => {
+  try {
+    const { tableId, guestCount } = req.body;
+
+    const table = await Table.findById(tableId);
+    if (!table) {
+      return res.status(404).json({ success: false, message: 'Bàn không tồn tại' });
+    }
+
+    if (table.status === 'occupied') {
+      return res.status(400).json({
+        success: false,
+        message: `Bàn [${table.tableNumber}] hiện đang có khách ngồi! Không thể mở thêm.`
+      });
+    }
+
+    if (table.status === 'reserved') {
+      return res.status(400).json({
+        success: false,
+        message: `Bàn [${table.tableNumber}] đã có khách đặt trước! Vui lòng liên hệ Lễ Tân đón khách check-in hoặc chọn bàn trống khác.`
+      });
+    }
+
+    const count = Number(guestCount) || 2;
+    table.status = 'occupied';
+    table.guestCount = count;
+    await table.save();
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.emit('table:status_changed', table);
+    }
+
+    res.json({
+      success: true,
+      data: table,
+      message: `Đã mở bàn [${table.tableNumber}] thành công cho ${count} khách! Bây giờ bạn có thể gọi món.`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 2. Tạo đơn hàng mới hoặc thêm món vào bàn
 exports.createOrUpdateOrder = async (req, res) => {
   try {
     const { tableId, items, generalNote, staffId, guestCount } = req.body;
@@ -13,8 +57,16 @@ exports.createOrUpdateOrder = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bàn không tồn tại' });
     }
 
+    // Bắt buộc bàn phải được mở (occupied) trước khi gọi món
+    if (table.status !== 'occupied') {
+      return res.status(400).json({
+        success: false,
+        message: `Bàn [${table.tableNumber}] chưa được mở khách! Vui lòng bấm nút 'Báo Có Khách' để nhập số lượng người trước khi gọi món.`
+      });
+    }
+
     let order;
-    if (table.currentOrderId && table.status === 'occupied') {
+    if (table.currentOrderId) {
       order = await Order.findById(table.currentOrderId);
     }
 
@@ -46,9 +98,8 @@ exports.createOrUpdateOrder = async (req, res) => {
         status: 'active'
       });
 
-      table.status = 'occupied';
       table.currentOrderId = order._id;
-      table.guestCount = order.guestCount;
+      if (guestCount) table.guestCount = Number(guestCount);
       await table.save();
     } else {
       const newItemsFormatted = items.map(item => ({
@@ -66,13 +117,17 @@ exports.createOrUpdateOrder = async (req, res) => {
         return item.status !== 'cancelled' ? sum + (item.price * item.quantity) : sum;
       }, 0);
       if (generalNote) order.generalNote = generalNote;
-      if (guestCount) order.guestCount = Number(guestCount);
+      if (guestCount) {
+        order.guestCount = Number(guestCount);
+        table.guestCount = Number(guestCount);
+        await table.save();
+      }
       await order.save();
     }
 
     const populatedOrder = await Order.findById(order._id)
       .populate('tableId', 'tableNumber zone')
-      .populate('items.menuItemId', 'name imageUrl station');
+      .populate('items.menuItemId', 'name imageUrl station recipe instructions');
 
     const io = req.app.get('socketio');
     if (io) {
@@ -86,7 +141,7 @@ exports.createOrUpdateOrder = async (req, res) => {
   }
 };
 
-// 2. Chuyển bàn (Transfer Table)
+// 3. Chuyển bàn (Transfer Table)
 exports.transferTable = async (req, res) => {
   try {
     const { fromTableId, toTableId, reason, performedBy } = req.body;
@@ -106,10 +161,13 @@ exports.transferTable = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Bàn đến đang có khách, vui lòng chọn bàn khác hoặc ghép bàn' });
     }
 
+    if (toTable.status === 'reserved') {
+      return res.status(400).json({ success: false, message: 'Bàn đến đã có khách đặt trước!' });
+    }
+
     const orderId = fromTable.currentOrderId;
     const order = await Order.findById(orderId);
 
-    // Cập nhật order sang bàn mới
     order.tableId = toTable._id;
     order.actionHistory.push({
       action: 'TRANSFER_TABLE',
@@ -118,7 +176,6 @@ exports.transferTable = async (req, res) => {
     });
     await order.save();
 
-    // Cập nhật trạng thái 2 bàn
     toTable.status = 'occupied';
     toTable.currentOrderId = orderId;
     toTable.guestCount = fromTable.guestCount;
@@ -129,7 +186,6 @@ exports.transferTable = async (req, res) => {
     fromTable.guestCount = 0;
     await fromTable.save();
 
-    // Ghi Audit Log
     await AuditLog.create({
       action: 'TRANSFER_TABLE',
       performedBy: performedBy || 'Phục vụ',
@@ -149,7 +205,7 @@ exports.transferTable = async (req, res) => {
   }
 };
 
-// 3. Ghép bàn (Merge Tables)
+// 4. Ghép bàn (Merge Tables)
 exports.mergeTables = async (req, res) => {
   try {
     const { primaryTableId, secondaryTableId, performedBy } = req.body;
@@ -161,7 +217,6 @@ exports.mergeTables = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Không tìm thấy bàn cần ghép' });
     }
 
-    // Nếu bàn phụ cũng có order -> gom món của bàn phụ vào bàn chính
     if (secondaryTable.currentOrderId && secondaryTable.currentOrderId.toString() !== primaryTable.currentOrderId?.toString()) {
       const secOrder = await Order.findById(secondaryTable.currentOrderId);
       const priOrder = await Order.findById(primaryTable.currentOrderId);
@@ -182,11 +237,9 @@ exports.mergeTables = async (req, res) => {
       }
     }
 
-    // Đánh dấu bàn chính có liên kết ghép với bàn phụ
     primaryTable.mergedWith.push(secondaryTable._id);
     await primaryTable.save();
 
-    // Bàn phụ chuyển sang trạng thái occupied và trỏ chung order
     secondaryTable.status = 'occupied';
     secondaryTable.currentOrderId = primaryTable.currentOrderId;
     await secondaryTable.save();
@@ -209,7 +262,7 @@ exports.mergeTables = async (req, res) => {
   }
 };
 
-// 4. Hủy món ăn có kiểm soát (Kiểm tra nếu Bếp đang nấu -> Bắt buộc Quản lý duyệt)
+// 5. Hủy món ăn có kiểm soát
 exports.cancelOrderItem = async (req, res) => {
   try {
     const { orderId, itemId } = req.params;
@@ -221,7 +274,6 @@ exports.cancelOrderItem = async (req, res) => {
     const item = order.items.id(itemId);
     if (!item) return res.status(404).json({ success: false, message: 'Món ăn không tồn tại trong đơn' });
 
-    // Nếu món đang cooking hoặc ready -> Yêu cầu lý do và người duyệt
     if (item.status === 'cooking' || item.status === 'ready') {
       if (!reason) {
         return res.status(400).json({
@@ -263,7 +315,7 @@ exports.cancelOrderItem = async (req, res) => {
   }
 };
 
-// 5. Bếp cập nhật trạng thái món: pending -> cooking -> ready -> served
+// 6. Bếp cập nhật trạng thái món
 exports.updateOrderItemStatus = async (req, res) => {
   try {
     const { orderId, itemId } = req.params;
@@ -283,13 +335,12 @@ exports.updateOrderItemStatus = async (req, res) => {
 
     const populatedOrder = await Order.findById(order._id)
       .populate('tableId', 'tableNumber zone')
-      .populate('items.menuItemId', 'name imageUrl station');
+      .populate('items.menuItemId', 'name imageUrl station recipe instructions');
 
     const io = req.app.get('socketio');
     if (io) {
       io.emit('kitchen:item_status_changed', { orderId, itemId, status, order: populatedOrder });
 
-      // Nếu món đã hoàn thành ('ready') -> Bắn thông báo khẩn tới máy Phục vụ
       if (status === 'ready') {
         io.emit('order:item_ready', {
           orderId,
@@ -307,7 +358,7 @@ exports.updateOrderItemStatus = async (req, res) => {
   }
 };
 
-// 6. Bếp Báo Hết Món Khẩn Cấp (86ing / Emergency Out of Stock)
+// 7. Bếp Báo Hết Món Khẩn Cấp (86ing)
 exports.emergencyOutOfStock = async (req, res) => {
   try {
     const { menuItemId, reason, performedBy } = req.body;
@@ -327,7 +378,6 @@ exports.emergencyOutOfStock = async (req, res) => {
       details: { itemName: menuItem.name }
     });
 
-    // Bắn sự kiện thời gian thực khóa món trên máy của tất cả nhân viên phục vụ
     const io = req.app.get('socketio');
     if (io) {
       io.emit('menu:item_out_of_stock', {
@@ -348,7 +398,7 @@ exports.getActiveKitchenOrders = async (req, res) => {
   try {
     const orders = await Order.find({ status: 'active' })
       .populate('tableId', 'tableNumber zone')
-      .populate('items.menuItemId', 'name imageUrl station')
+      .populate('items.menuItemId', 'name imageUrl station recipe instructions')
       .sort({ createdAt: 1 });
 
     res.json({ success: true, data: orders });
@@ -363,7 +413,7 @@ exports.getOrderByTableId = async (req, res) => {
     const { tableId } = req.params;
     const order = await Order.findOne({ tableId, status: 'active' })
       .populate('tableId', 'tableNumber zone')
-      .populate('items.menuItemId', 'name price imageUrl station');
+      .populate('items.menuItemId', 'name price imageUrl station recipe instructions');
 
     if (!order) {
       return res.status(404).json({ success: false, message: 'Không có đơn hàng active cho bàn này' });
