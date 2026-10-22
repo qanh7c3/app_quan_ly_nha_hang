@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat, Clock, CheckCircle, Flame, Check, AlertCircle, Ban, X, BookOpen, Utensils, Sparkles, Search, Layers } from 'lucide-react';
-import { getKitchenOrders, updateOrderItemStatus, getMenuItems, emergencyOutOfStock } from '../services/api';
+import { getKitchenOrders, updateOrderItemStatus, getMenuItems, emergencyOutOfStock, resetDatabaseMenu30 } from '../services/api';
+import { getStoredMenu30, saveStoredMenu30 } from '../data/defaultMenu30';
 import socket from '../services/socket';
 
 export default function KitchenKDS() {
@@ -22,13 +23,31 @@ export default function KitchenKDS() {
     try {
       setLoading(true);
       const [ordRes, menuRes] = await Promise.all([
-        getKitchenOrders(),
-        getMenuItems()
+        getKitchenOrders().catch(() => ({ data: { success: false, data: [] } })),
+        getMenuItems().catch(() => ({ data: { success: false, data: [] } }))
       ]);
-      if (ordRes.data.success) setOrders(ordRes.data.data);
-      if (menuRes.data.success) setMenuItems(menuRes.data.data);
+      if (ordRes?.data?.success) setOrders(ordRes.data.data);
+
+      if (menuRes?.data?.success && Array.isArray(menuRes.data.data) && menuRes.data.data.length >= 30) {
+        setMenuItems(menuRes.data.data);
+        saveStoredMenu30(menuRes.data.data);
+      } else {
+        // Tự động thử gọi API reset DB nạp 30 món nếu DB chưa có
+        try {
+          const resetRes = await resetDatabaseMenu30();
+          if (resetRes?.data?.success && Array.isArray(resetRes.data.data) && resetRes.data.data.length >= 30) {
+            setMenuItems(resetRes.data.data);
+            saveStoredMenu30(resetRes.data.data);
+            return;
+          }
+        } catch (e) {
+          console.warn('API reset DB chưa phản hồi từ Bếp KDS, sử dụng dữ liệu 30 món nội bộ:', e);
+        }
+        setMenuItems(getStoredMenu30());
+      }
     } catch (err) {
       console.error('Lỗi tải danh sách bếp:', err);
+      setMenuItems(getStoredMenu30());
     } finally {
       setLoading(false);
     }

@@ -27,6 +27,7 @@ export const getCategories = () => api.get('/categories');
 export const getMenuItems = (params) => api.get('/menu-items', { params });
 export const getMenuCostAnalysis = () => api.get('/menu-items/cost-analysis');
 export const toggleMenuItemAvailability = (id) => api.patch(`/menu-items/${id}/toggle`);
+export const resetDatabaseMenu30 = () => api.post('/menu-items/reset-30-dishes');
 
 // 4. Phân hệ Phục vụ (Mở bàn báo có khách, Order, Chuyển bàn, Ghép bàn, Hủy món)
 export const openTable = (data) => api.post('/orders/open-table', data);

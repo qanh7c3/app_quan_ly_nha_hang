@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Send, Trash2, ShoppingCart, Search, Utensils, Ban, Sparkles } from 'lucide-react';
-import { getCategories, getMenuItems, createOrUpdateOrder } from '../services/api';
+import { getCategories, getMenuItems, createOrUpdateOrder, resetDatabaseMenu30 } from '../services/api';
+import { DEFAULT_CATEGORIES, getStoredMenu30, saveStoredMenu30 } from '../data/defaultMenu30';
 import socket from '../services/socket';
 
 export default function OrderModal({ table, onClose, onOrderSuccess }) {
@@ -15,17 +16,38 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
   const fetchMenuData = async () => {
     try {
       const [catRes, menuRes] = await Promise.all([
-        getCategories(),
-        getMenuItems()
+        getCategories().catch(() => ({ data: { success: false, data: [] } })),
+        getMenuItems().catch(() => ({ data: { success: false, data: [] } }))
       ]);
-      if (catRes.data.success) {
+
+      if (catRes?.data?.success && catRes.data.data.length > 0) {
         setCategories(catRes.data.data);
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
       }
-      if (menuRes.data.success) {
+
+      if (menuRes?.data?.success && Array.isArray(menuRes.data.data) && menuRes.data.data.length >= 30) {
         setMenuItems(menuRes.data.data);
+        saveStoredMenu30(menuRes.data.data);
+      } else {
+        // Nếu DB trả về dưới 30 món (hoặc 7 món cũ), tự động kích hoạt API reset DB nạp 30 món chuẩn
+        try {
+          const resetRes = await resetDatabaseMenu30();
+          if (resetRes?.data?.success && Array.isArray(resetRes.data.data) && resetRes.data.data.length >= 30) {
+            setMenuItems(resetRes.data.data);
+            saveStoredMenu30(resetRes.data.data);
+            return;
+          }
+        } catch (e) {
+          console.warn('API reset DB chưa phản hồi, chuyển sang nạp 30 món từ LocalStorage v2:', e);
+        }
+        const fallbackItems = getStoredMenu30();
+        setMenuItems(fallbackItems);
       }
     } catch (err) {
       console.error('Lỗi tải thực đơn:', err);
+      setMenuItems(getStoredMenu30());
+      setCategories(DEFAULT_CATEGORIES);
     }
   };
 
@@ -43,7 +65,8 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
 
   // Lọc món ăn theo danh mục và tìm kiếm
   const filteredItems = menuItems.filter((item) => {
-    const matchCategory = selectedCategory ? item.categoryId?._id === selectedCategory : true;
+    const itemCatId = item.categoryId?._id || item.categoryId;
+    const matchCategory = selectedCategory ? (itemCatId === selectedCategory || item.categoryId === selectedCategory) : true;
     const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchCategory && matchSearch;
   });

@@ -1,5 +1,6 @@
 const MenuItem = require('../models/MenuItem');
 const Category = require('../models/Category');
+const { resetMenuDatabase } = require('../seeds/reset30Dishes');
 
 // Lấy toàn bộ danh mục thực đơn
 exports.getCategories = async (req, res) => {
@@ -138,6 +139,20 @@ exports.toggleAvailability = async (req, res) => {
       success: true,
       data: item,
       message: `Đã ${item.isAvailable ? 'mở phục vụ' : 'tạm ngừng phục vụ'} món ${item.name} trên POS`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Reset toàn bộ thực đơn về 30 món chuẩn (Dọn sạch DB và nạp mới)
+exports.reset30Dishes = async (req, res) => {
+  try {
+    const items = await resetMenuDatabase();
+    res.json({
+      success: true,
+      message: `Đã dọn sạch DB và nạp mới thành công ${items.length} món ăn chuẩn!`,
+      data: items
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -30,6 +30,7 @@ router.patch('/waitlist/:id/seat', resCtrl.seatWaitlistCustomer);
 router.get('/categories', menuCtrl.getCategories);
 router.get('/menu-items', menuCtrl.getMenuItems);
 router.get('/menu-items/cost-analysis', menuCtrl.getMenuCostAnalysis);
+router.post('/menu-items/reset-30-dishes', menuCtrl.reset30Dishes);
 router.post('/menu-items', uploadCloud.single('image'), menuCtrl.createMenuItem);
 router.patch('/menu-items/:id/toggle', menuCtrl.toggleAvailability);
 

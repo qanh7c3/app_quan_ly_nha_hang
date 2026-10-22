@@ -35,8 +35,10 @@ import {
   createUtilityRecord,
   getMenuCostAnalysis,
   getAuditLogs,
-  toggleMenuItemAvailability
+  toggleMenuItemAvailability,
+  resetDatabaseMenu30
 } from '../services/api';
+import { resetStoredMenu30, getStoredMenu30 } from '../data/defaultMenu30';
 import socket from '../services/socket';
 
 export default function ManagerPage() {
@@ -49,6 +51,7 @@ export default function ManagerPage() {
   const [utilities, setUtilities] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isResettingMenu, setIsResettingMenu] = useState(false);
 
   // Bộ lọc kho theo 4 nhóm phân loại
   const [selectedInvCategory, setSelectedInvCategory] = useState('ALL');
@@ -74,26 +77,94 @@ export default function ManagerPage() {
     try {
       setLoading(true);
       const [repRes, invRes, impRes, costRes, utilRes, logRes] = await Promise.all([
-        getReportStats(),
-        getInventory(),
-        getImportHistory(),
-        getMenuCostAnalysis(),
-        getUtilities(),
-        getAuditLogs()
+        getReportStats().catch(() => ({ data: { success: false } })),
+        getInventory().catch(() => ({ data: { success: false } })),
+        getImportHistory().catch(() => ({ data: { success: false } })),
+        getMenuCostAnalysis().catch(() => ({ data: { success: false } })),
+        getUtilities().catch(() => ({ data: { success: false } })),
+        getAuditLogs().catch(() => ({ data: { success: false } }))
       ]);
-      if (repRes.data.success) setStats(repRes.data.data);
-      if (invRes.data.success) setInventory(invRes.data.data);
-      if (impRes.data.success) setImportsHistory(impRes.data.data);
-      if (costRes.data.success) {
+
+      if (repRes?.data?.success) setStats(repRes.data.data);
+      if (invRes?.data?.success) setInventory(invRes.data.data);
+      if (impRes?.data?.success) setImportsHistory(impRes.data.data);
+
+      if (costRes?.data?.success && Array.isArray(costRes.data.data) && costRes.data.data.length >= 30) {
         setCostAnalysis(costRes.data.data);
         if (costRes.data.summary) setCostSummary(costRes.data.summary);
+      } else {
+        // Tự động tính toán bảng Cost & Lợi nhuận 30 món từ LocalStorage v2 nếu DB trả về dưới 30 món
+        const storedDishes = getStoredMenu30();
+        const calculatedAnalysis = storedDishes.map((item, idx) => {
+          let calculatedCost = item.costPrice || 0;
+          if (item.recipe && item.recipe.length > 0) {
+            const recipeSum = item.recipe.reduce((sum, r) => sum + (r.estimatedCost || 0), 0);
+            if (recipeSum > 0 && calculatedCost === 0) calculatedCost = recipeSum;
+          }
+          const sellingPrice = item.price || 0;
+          const grossProfit = Math.max(0, sellingPrice - calculatedCost);
+          const marginPercent = sellingPrice > 0 ? Number(((grossProfit / sellingPrice) * 100).toFixed(2)) : 0;
+          return {
+            _id: item._id || `dish-${idx + 1}`,
+            name: item.name,
+            category: item.categoryId?.name || 'Món gia đình',
+            price: sellingPrice,
+            costPrice: calculatedCost,
+            grossProfit,
+            marginPercent,
+            isAvailable: item.isAvailable !== false
+          };
+        });
+        setCostAnalysis(calculatedAnalysis);
+        const totalMenuPrice = calculatedAnalysis.reduce((s, i) => s + i.price, 0);
+        const totalMenuCost = calculatedAnalysis.reduce((s, i) => s + i.costPrice, 0);
+        const totalGrossProfit = totalMenuPrice - totalMenuCost;
+        const avgMarginPercent = totalMenuPrice > 0 ? Number(((totalGrossProfit / totalMenuPrice) * 100).toFixed(2)) : 0;
+        setCostSummary({
+          totalDishes: calculatedAnalysis.length,
+          totalMenuPrice,
+          totalMenuCost,
+          totalGrossProfit,
+          avgMarginPercent
+        });
       }
-      if (utilRes.data.success) setUtilities(utilRes.data.data);
-      if (logRes.data.success) setAuditLogs(logRes.data.data);
+
+      if (utilRes?.data?.success) setUtilities(utilRes.data.data);
+      if (logRes?.data?.success) setAuditLogs(logRes.data.data);
     } catch (err) {
       console.error('Lỗi tải dữ liệu quản lý:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // NÚT BẤM RESET TOÀN BỘ VỀ 30 MÓN CHUẨN (Database + LocalStorage)
+  const handleResetMenu30 = async () => {
+    if (!window.confirm('Xác nhận dọn sạch thực đơn cũ và nạp mới toàn bộ 30 món ăn chuẩn (kèm giá Siêu thị, giá Cost chợ và công thức SOP 4 bước) vào Database & LocalStorage?')) {
+      return;
+    }
+    setIsResettingMenu(true);
+    try {
+      // 1. Reset LocalStorage
+      resetStoredMenu30();
+
+      // 2. Gọi API dọn sạch & nạp mới MongoDB
+      let apiMessage = '';
+      try {
+        const res = await resetDatabaseMenu30();
+        if (res?.data?.success) {
+          apiMessage = `\nĐồng thời đã nạp mới ${res.data.data?.length || 30} món vào MongoDB Database!`;
+        }
+      } catch (apiErr) {
+        console.warn('API reset DB chưa kết nối, đã cập nhật LocalStorage v2:', apiErr);
+      }
+
+      alert('✅ Đã reset thành công thực đơn về 30 món chuẩn giá Siêu thị!' + apiMessage);
+      await loadData();
+    } catch (err) {
+      alert('Lỗi khi reset thực đơn: ' + err.message);
+    } finally {
+      setIsResettingMenu(false);
     }
   };
 
@@ -208,56 +279,68 @@ export default function ManagerPage() {
           </div>
         </div>
 
-        {/* 6 Tab điều khiển chức năng Quản lý */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-black/40 p-1.5 rounded-2xl text-xs font-bold border border-white/10">
+        {/* 6 Tab điều khiển chức năng Quản lý + Nút Reset 30 món */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 bg-black/40 p-1.5 rounded-2xl text-xs font-bold border border-white/10">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-3 py-1.5 rounded-xl transition-all ${
+                activeTab === 'overview' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Doanh Thu
+            </button>
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
+                activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Kho Nguyên Liệu ({inventory.length})
+              {lowStockItems.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>}
+            </button>
+            <button
+              onClick={() => setActiveTab('imports')}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                activeTab === 'imports' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" /> Lịch Sử Nhập Hàng
+            </button>
+            <button
+              onClick={() => setActiveTab('costAnalysis')}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                activeTab === 'costAnalysis' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Calculator className="w-3.5 h-3.5 text-amber-400" /> Giá Cost & Lợi Nhuận (30 Món)
+            </button>
+            <button
+              onClick={() => setActiveTab('utilities')}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
+                activeTab === 'utilities' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-400" /> Điện & Nước
+            </button>
+            <button
+              onClick={() => setActiveTab('audit')}
+              className={`px-3 py-1.5 rounded-xl transition-all ${
+                activeTab === 'audit' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Audit Log ({auditLogs.length})
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-3 py-1.5 rounded-xl transition-all ${
-              activeTab === 'overview' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
+            onClick={handleResetMenu30}
+            disabled={isResettingMenu}
+            title="Dọn sạch dữ liệu cũ và nạp lại toàn bộ 30 món chuẩn giá Siêu thị vào DB & LocalStorage"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all active:scale-95 disabled:opacity-50"
           >
-            Doanh Thu
-          </button>
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
-              activeTab === 'inventory' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            Kho Nguyên Liệu ({inventory.length})
-            {lowStockItems.length > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>}
-          </button>
-          <button
-            onClick={() => setActiveTab('imports')}
-            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-              activeTab === 'imports' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" /> Lịch Sử Nhập Hàng
-          </button>
-          <button
-            onClick={() => setActiveTab('costAnalysis')}
-            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-              activeTab === 'costAnalysis' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Calculator className="w-3.5 h-3.5 text-amber-400" /> Giá Cost & Lợi Nhuận (30 Món)
-          </button>
-          <button
-            onClick={() => setActiveTab('utilities')}
-            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-              activeTab === 'utilities' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400" /> Điện & Nước
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-3 py-1.5 rounded-xl transition-all ${
-              activeTab === 'audit' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            Audit Log ({auditLogs.length})
+            <RefreshCw className={`w-3.5 h-3.5 ${isResettingMenu ? 'animate-spin' : ''}`} />
+            {isResettingMenu ? 'Đang reset...' : 'Reset dữ liệu về 30 món chuẩn'}
           </button>
         </div>
       </div>
@@ -623,9 +706,19 @@ export default function ManagerPage() {
                   Tự động tính lợi nhuận gộp và tỷ suất biên lợi nhuận (% Margin) theo công thức tài chính
                 </p>
               </div>
-              <span className="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Khớp chuẩn bảng biểu đặc tả
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleResetMenu30}
+                  disabled={isResettingMenu}
+                  className="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isResettingMenu ? 'animate-spin' : ''}`} />
+                  Reset dữ liệu về 30 món chuẩn
+                </button>
+                <span className="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Khớp chuẩn đặc tả ({costAnalysis.length} món)
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
