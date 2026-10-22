@@ -744,7 +744,7 @@ export const DEFAULT_MENU_30 = [
     price: 32000,
     costPrice: 19000,
     description: 'Bia Heineken lon 330ml ướp đá lạnh sảng khoái',
-    imageUrl: 'https://images.unsplash.com/photo-1618886614638-80e3c15cd819?w=600&auto=format&fit=crop',
+    imageUrl: '/assets/heineken.png',
     station: 'bar',
     isAvailable: true,
     recipe: [
@@ -764,7 +764,7 @@ export const DEFAULT_MENU_30 = [
     price: 30000,
     costPrice: 18000,
     description: 'Bia Tiger Crystal lên men lạnh cực đã',
-    imageUrl: 'https://images.unsplash.com/photo-1608270119614-7e8cf65f128c?w=600&auto=format&fit=crop&q=80',
+    imageUrl: '/assets/tiger.png',
     station: 'bar',
     isAvailable: true,
     recipe: [
@@ -799,8 +799,7 @@ export const DEFAULT_MENU_30 = [
   }
 ];
 
-// KHÓA LƯU TRỮ MỚI THEO YÊU CẦU: restaurant_menu_v2_30dishes
-export const MENU_STORAGE_KEY = 'restaurant_menu_v2_30dishes';
+export const MENU_STORAGE_KEY = 'restaurant_menu_v3_30dishes';
 
 // LẤY DỮ LIỆU TỰ ĐỘNG: NẾU THIẾU < 30 MÓN (DÍNH 7 MÓN CŨ) -> TỰ ĐỘNG RESET VỀ 30 MÓN MỚI
 export const getStoredMenu30 = () => {

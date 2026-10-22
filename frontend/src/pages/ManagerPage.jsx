@@ -86,7 +86,12 @@ export default function ManagerPage() {
       ]);
 
       if (repRes?.data?.success) setStats(repRes.data.data);
-      if (invRes?.data?.success) setInventory(invRes.data.data);
+      if (invRes?.data?.success && Array.isArray(invRes.data.data) && invRes.data.data.length >= 60) {
+        setInventory(invRes.data.data);
+        saveStoredInventory(invRes.data.data);
+      } else {
+        setInventory(getStoredInventory());
+      }
       if (impRes?.data?.success) setImportsHistory(impRes.data.data);
 
       if (costRes?.data?.success && Array.isArray(costRes.data.data) && costRes.data.data.length >= 30) {
@@ -241,20 +246,30 @@ export default function ManagerPage() {
 
   // Lọc nguyên liệu theo danh mục và tìm kiếm
   const filteredInventory = inventory.filter((item) => {
-    const matchCat = selectedInvCategory === 'ALL' || item.category === selectedInvCategory;
-    const matchSearch = item.name.toLowerCase().includes(invSearch.toLowerCase());
+    const matchCat =
+      selectedInvCategory === 'ALL' ||
+      item.category === selectedInvCategory ||
+      item.group === selectedInvCategory ||
+      (selectedInvCategory === 'Đồ uống/Bia' && (item.category === 'Đồ uống/Bia' || item.group?.includes('ĐỒ UỐNG')));
+    const matchSearch =
+      item.name.toLowerCase().includes(invSearch.toLowerCase()) ||
+      (item.category && item.category.toLowerCase().includes(invSearch.toLowerCase())) ||
+      (item.subCategory && item.subCategory.toLowerCase().includes(invSearch.toLowerCase())) ||
+      (item.note && item.note.toLowerCase().includes(invSearch.toLowerCase()));
     return matchCat && matchSearch;
   });
 
   const lowStockItems = inventory.filter(i => i.isLowStock || i.quantityInStock <= i.minThreshold);
 
-  // 4 nhóm phân loại nguyên liệu chuẩn đặc tả
   const invCategories = [
     'ALL',
-    'Thịt, Hải Sản & Trứng',
-    'Rau Củ Quả & Nấm',
-    'Rau Thơm & Thực Phẩm Khô',
-    'Gia Vị & Nước Sốt Đóng Chai',
+    'Thịt, Thủy Hải Sản & Trứng',
+    'Rau Xanh, Củ Quả & Nấm Tươi',
+    'Rau Thơm, Thảo Mộc Tươi & Gia Vị Tươi Căn Bản',
+    'Đồ Khô & Thực Phẩm Chế Biến Sẵn',
+    'Gia Vị Nêm Nếm Thông Dụng',
+    'Các Loại Nước Sốt & Dầu Đóng Chai',
+    'Gia Vị Đặc Trưng Cho Món Chuyên Biệt',
     'Đồ uống/Bia'
   ];
 
@@ -544,12 +559,26 @@ export default function ManagerPage() {
                     return (
                       <tr key={item._id} className={isLow ? 'bg-rose-50/50 hover:bg-rose-50' : 'hover:bg-slate-50/60'}>
                         <td className="p-3 font-bold text-slate-900">
-                          {item.name}
-                          {isLow && (
-                            <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-600 text-white">
-                              LOW STOCK
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2.5">
+                            {item.imageUrl && (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-8 h-8 rounded-lg object-contain bg-slate-50 border border-slate-200 shrink-0"
+                              />
+                            )}
+                            <div>
+                              <span>{item.name}</span>
+                              {isLow && (
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-600 text-white">
+                                  LOW STOCK
+                                </span>
+                              )}
+                              {item.subCategory && (
+                                <p className="text-[10px] text-slate-400 font-normal">{item.subCategory}</p>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="p-3 text-slate-600">{item.category}</td>
                         <td className="p-3">
@@ -577,6 +606,10 @@ export default function ManagerPage() {
                                 </span>
                               ))}
                             </div>
+                          ) : item.note ? (
+                            <span className="text-slate-500 text-[11px] italic bg-slate-100 px-2 py-0.5 rounded-md">{item.note}</span>
+                          ) : item.note ? (
+                            <span className="text-slate-500 text-[11px] italic bg-slate-100 px-2 py-0.5 rounded-md">{item.note}</span>
                           ) : (
                             <span className="text-slate-400 italic text-[11px]">-</span>
                           )}

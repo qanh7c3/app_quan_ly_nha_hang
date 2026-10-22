@@ -11,11 +11,13 @@ import {
   UserCheck,
   AlertTriangle,
   Sparkles,
-  Layers
+  Layers,
+  BookOpen
 } from 'lucide-react';
 import { getTables, updateTableStatus, transferTable, mergeTables, cancelOrderItem, openTable } from '../services/api';
 import socket from '../services/socket';
 import OrderModal from './OrderModal';
+import RecipeModal from '../components/RecipeModal';
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);
@@ -35,6 +37,7 @@ export default function TablesPage() {
   // State cho nghiệp vụ Xem tạm tính / Hủy món
   const [previewModal, setPreviewModal] = useState({ open: false, table: null });
   const [cancelReasonModal, setCancelReasonModal] = useState({ open: false, orderId: null, itemId: null, reason: '', itemName: '' });
+  const [recipeModal, setRecipeModal] = useState({ open: false, dish: null });
 
   const fetchTablesList = async () => {
     try {
@@ -191,7 +194,7 @@ export default function TablesPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Quy trình: Bấm <b>"Báo Có Khách"</b> $\rightarrow$ Nhập số lượng khách $\rightarrow$ Mở bàn $\rightarrow$ Mới được gọi món. Không được xếp trùng bàn đã đặt trước!
+            Quy trình: Bấm <b>"Báo Có Khách"</b> → Nhập số lượng khách → Mở bàn → Mới được gọi món. Không được xếp trùng bàn đã đặt trước!
           </p>
         </div>
 
@@ -232,7 +235,7 @@ export default function TablesPage() {
                 {/* Header bàn */}
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="text-base font-extrabold text-slate-900">{table.tableNumber}</span>
+                    <div className="flex items-center gap-2"><span className="text-base font-extrabold text-slate-900">{table.tableNumber}</span><button type="button" title="Sổ tay công thức 30 món" onClick={() => setRecipeModal({ open: true, dish: null })} className="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 transition-colors"><BookOpen className="w-3.5 h-3.5" /></button></div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${style.badge}`}>
                       {style.label}
                     </span>
@@ -255,9 +258,7 @@ export default function TablesPage() {
                         >
                           <FileText className="w-3 h-3" /> Phiếu kiểm đồ
                         </button>
-                        <span className="text-[10px] text-slate-400">
-                          {table.currentOrderId.items?.filter(i => i.status !== 'cancelled').length || 0} món
-                        </span>
+                        <button onClick={() => setRecipeModal({ open: true, dish: null })} className="text-[11px] font-bold text-amber-700 hover:underline flex items-center gap-1"><BookOpen className="w-3 h-3" /> Sổ tay ({table.currentOrderId.items?.filter(i => i.status !== 'cancelled').length || 0} món)</button>
                       </div>
                     </div>
                   ) : isReserved ? (
@@ -527,7 +528,7 @@ export default function TablesPage() {
               {previewModal.table.currentOrderId.items?.map((item) => (
                 <div key={item._id} className="py-2.5 flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-slate-800">{item.name} x {item.quantity}</span>
+                    <button type="button" onClick={() => setRecipeModal({ open: true, dish: item })} className="font-bold text-slate-800 hover:text-amber-700 text-left hover:underline inline-flex items-center gap-1.5"><span>{item.name} x {item.quantity}</span><BookOpen className="w-3 h-3 text-amber-600 inline" /></button>
                     <span className={`ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       item.status === 'cooking' ? 'bg-amber-100 text-amber-800' :
                       item.status === 'ready' ? 'bg-emerald-100 text-emerald-800' :
@@ -632,6 +633,12 @@ export default function TablesPage() {
           }}
         />
       )}
+
+      <RecipeModal
+        isOpen={recipeModal.open}
+        onClose={() => setRecipeModal({ open: false, dish: null })}
+        initialDish={recipeModal.dish}
+      />
     </div>
   );
 }

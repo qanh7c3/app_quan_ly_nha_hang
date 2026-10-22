@@ -7,23 +7,23 @@ const inventorySchema = new mongoose.Schema({
     trim: true,
     unique: true
   },
+  group: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   category: {
     type: String,
-    enum: [
-      'Thịt, Hải Sản & Trứng',
-      'Rau Củ Quả & Nấm',
-      'Rau Thơm & Thực Phẩm Khô',
-      'Gia Vị & Nước Sốt Đóng Chai',
-      'Thịt/Hải sản',
-      'Rau củ',
-      'Gia vị/Đồ khô',
-      'Đồ uống/Bia',
-      'Khác'
-    ],
-    default: 'Khác'
+    required: true,
+    trim: true
+  },
+  subCategory: {
+    type: String,
+    trim: true,
+    default: ''
   },
   unit: {
-    type: String, // kg, gram, lít, lon, chai, gói
+    type: String,
     required: true,
     default: 'kg'
   },
@@ -33,12 +33,20 @@ const inventorySchema = new mongoose.Schema({
     default: 0
   },
   minThreshold: {
-    type: Number, // Mức cảnh báo sắp hết hàng
+    type: Number,
     default: 5
   },
   costPerUnit: {
-    type: Number, // Giá vốn nhập kho
+    type: Number,
     default: 0
+  },
+  imageUrl: {
+    type: String,
+    default: ''
+  },
+  note: {
+    type: String,
+    default: ''
   },
   lastImportDate: {
     type: Date,

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Send, Trash2, ShoppingCart, Search, Utensils, Ban, Sparkles } from 'lucide-react';
+import { X, Plus, Minus, Send, Trash2, ShoppingCart, Search, Utensils, Ban, Sparkles, BookOpen } from 'lucide-react';
 import { getCategories, getMenuItems, createOrUpdateOrder, resetDatabaseMenu30 } from '../services/api';
 import { DEFAULT_CATEGORIES, getStoredMenu30, saveStoredMenu30 } from '../data/defaultMenu30';
 import socket from '../services/socket';
+import RecipeModal from '../components/RecipeModal';
 
 export default function OrderModal({ table, onClose, onOrderSuccess }) {
   const [categories, setCategories] = useState([]);
@@ -12,6 +13,7 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
   const [cart, setCart] = useState([]);
   const [generalNote, setGeneralNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recipeModal, setRecipeModal] = useState({ open: false, dish: null });
 
   const fetchMenuData = async () => {
     try {
@@ -166,12 +168,17 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
-          >
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setRecipeModal({ open: true, dish: null })} className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+              <BookOpen className="w-3.5 h-3.5" /> Sổ Tay Công Thức
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            >
             <X className="w-6 h-6" />
           </button>
+          </div>
         </div>
 
         {/* Thân Modal: 2 Cột */}
@@ -274,13 +281,33 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
                         {item.price.toLocaleString('vi-VN')} đ
                       </span>
 
-                      {isAvailable ? (
-                        <button className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs">
-                          <Plus className="w-4 h-4" />
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          title="Xem công thức chi tiết"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRecipeModal({ open: true, dish: item });
+                          }}
+                          className="w-7 h-7 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-500 hover:text-white flex items-center justify-center transition-all shadow-xs"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" />
                         </button>
-                      ) : (
-                        <span className="text-[10px] text-rose-500 font-bold">Hết</span>
-                      )}
+                        {isAvailable ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(item);
+                            }}
+                            className="w-7 h-7 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-xs"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-rose-500 font-bold px-1">Hết</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -397,6 +424,12 @@ export default function OrderModal({ table, onClose, onOrderSuccess }) {
           </div>
         </div>
       </div>
+      <RecipeModal
+        isOpen={recipeModal.open}
+        onClose={() => setRecipeModal({ open: false, dish: null })}
+        initialDish={recipeModal.dish}
+        dishes={menuItems}
+      />
     </div>
   );
 }
