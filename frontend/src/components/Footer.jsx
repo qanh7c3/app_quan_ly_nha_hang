@@ -1,25 +1,35 @@
 import React from 'react';
 import { Phone, Mail, MapPin, Sparkles, ChevronRight } from 'lucide-react';
 
-export default function Footer({ setActiveRole }) {
-  const modules = [
-    { id: 'reception', label: 'Lễ tân & Đặt bàn' },
-    { id: 'waiter', label: 'Phục vụ & POS (Sơ đồ bàn)' },
-    { id: 'kitchen', label: 'Bếp / Bar & KDS' },
-    { id: 'cashier', label: 'Thu ngân & Két' },
-    { id: 'manager', label: 'Quản lý & Kho nguyên liệu' }
+export default function Footer({ onSelectRole, setActiveRole, currentUser }) {
+  const baseModules = [
+    { id: 'reception', label: '1. Lễ tân & Đặt bàn' },
+    { id: 'waiter', label: '2. Phục vụ & Sơ đồ bàn POS' },
+    { id: 'kitchen', label: '3. Bếp / Bar & KDS Realtime' },
+    { id: 'cashier', label: '4. Thu ngân & Thanh toán VietQR' },
+    { id: 'manager', label: '5. Quản lý, Kho & Lãi lỗ' }
   ];
+
+  const modules = currentUser?.accountType === 'owner'
+    ? [...baseModules, { id: 'accounts', label: '6. Quản lý tài khoản (Chủ)' }]
+    : baseModules;
+
+  const handleClick = (id) => {
+    if (onSelectRole) {
+      onSelectRole(id);
+    } else if (setActiveRole) {
+      setActiveRole(id);
+    }
+  };
 
   return (
     <footer className="relative mt-auto bg-gradient-to-b from-[#0b1329] via-[#080d1c] to-[#040711] text-slate-200 border-t border-amber-500/25 overflow-hidden">
-      {/* Hiệu ứng tia sáng vi mạch công nghệ vàng gold phía trên */}
       <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent"></div>
       <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 pb-10 border-b border-amber-500/20">
           
-          {/* CỘT 1: Logo & Giới thiệu hệ thống */}
           <div className="md:col-span-5 space-y-4">
             <div className="flex items-center gap-3.5">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-b from-[#141e36] to-[#0a1020] p-1 border border-amber-400/40 shadow-lg shadow-amber-500/15 flex items-center justify-center shrink-0">
@@ -52,7 +62,6 @@ export default function Footer({ setActiveRole }) {
             </div>
           </div>
 
-          {/* CỘT 2: Phân hệ chức năng */}
           <div className="md:col-span-3 space-y-3.5">
             <h4 className="font-extrabold text-xs sm:text-sm tracking-wider uppercase text-amber-400 flex items-center gap-2">
               <span className="w-1.5 h-3.5 bg-amber-400 rounded-full"></span>
@@ -62,8 +71,8 @@ export default function Footer({ setActiveRole }) {
               {modules.map((m) => (
                 <li key={m.id}>
                   <button
-                    onClick={() => setActiveRole && setActiveRole(m.id)}
-                    className="group flex items-center gap-2 text-slate-300 hover:text-amber-300 transition-colors text-left py-0.5"
+                    onClick={() => handleClick(m.id)}
+                    className="group flex items-center gap-2 text-slate-300 hover:text-amber-300 transition-colors text-left py-0.5 cursor-pointer"
                   >
                     <ChevronRight className="w-3.5 h-3.5 text-amber-500/60 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
                     <span>{m.label}</span>
@@ -73,7 +82,6 @@ export default function Footer({ setActiveRole }) {
             </ul>
           </div>
 
-          {/* CỘT 3: Thông tin liên hệ (Địa chỉ: 50 Cát Bi, Hải An, Hải Phòng) */}
           <div className="md:col-span-4 space-y-3.5">
             <h4 className="font-extrabold text-xs sm:text-sm tracking-wider uppercase text-amber-400 flex items-center gap-2">
               <span className="w-1.5 h-3.5 bg-amber-400 rounded-full"></span>
@@ -118,7 +126,6 @@ export default function Footer({ setActiveRole }) {
 
         </div>
 
-        {/* Chân trang dưới cùng */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400 font-medium">
           <p>
             Copyright © 2026 <span className="font-bold text-amber-400/90">CLOUD RESTAURANT RMS</span>. Tất cả các quyền được bảo lưu.

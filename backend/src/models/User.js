@@ -4,29 +4,55 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Vui lòng nhập tên người dùng'],
+    required: true,
     trim: true
+  },
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true
   },
   email: {
     type: String,
-    required: [true, 'Vui lòng nhập email'],
-    unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    default: ''
   },
   password: {
     type: String,
-    required: [true, 'Vui lòng nhập mật khẩu'],
-    minlength: 6
+    required: true,
+    minlength: 4
   },
-  role: {
+  accountType: {
     type: String,
-    enum: ['admin', 'manager', 'waiter', 'cashier', 'kitchen'],
+    enum: ['owner', 'staff'],
+    default: 'staff'
+  },
+  position: {
+    type: String,
+    enum: ['reception', 'waiter', 'kitchen', 'cashier', 'manager', 'owner'],
     default: 'waiter'
+  },
+  plan: {
+    type: String,
+    enum: ['starter', 'standard', 'pro', 'enterprise', null],
+    default: null
+  },
+  planName: {
+    type: String,
+    default: ''
   },
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
+  },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'approved'
   },
   isActive: {
     type: Boolean,
@@ -34,7 +60,6 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Mã hóa mật khẩu trước khi lưu
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
@@ -42,7 +67,6 @@ userSchema.pre('save', async function(next) {
   next();
 });
 
-// So sánh mật khẩu
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
