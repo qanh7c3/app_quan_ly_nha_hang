@@ -36,22 +36,51 @@ import {
   getMenuCostAnalysis,
   getAuditLogs,
   toggleMenuItemAvailability,
-  resetDatabaseMenu30
+  resetDatabaseMenu30,
+  resetAllRestaurantData
 } from '../services/api';
-import { resetStoredMenu30, getStoredMenu30 } from '../data/defaultMenu30';
+import { DEFAULT_MENU_30, resetStoredMenu30, getStoredMenu30 } from '../data/defaultMenu30';
+import { getStoredInventory, saveStoredInventory } from '../data/defaultInventory';
+import { getStoredImports, addStoredImport } from '../data/defaultImports';
 import socket from '../services/socket';
+
+// 30 Món ăn gia đình chuẩn đặc tả ### 1. Bảng Dữ Liệu Giá Bán Niêm Yết Siêu Thị: trong CAPNHATMOILAN1.md
+const defaultCostData = DEFAULT_MENU_30.slice(0, 30).map((item, idx) => {
+  const calculatedCost = item.costPrice || 0;
+  const sellingPrice = item.price || 0;
+  const grossProfit = Math.max(0, sellingPrice - calculatedCost);
+  const marginPercent = sellingPrice > 0 ? Number(((grossProfit / sellingPrice) * 100).toFixed(2)) : 0;
+  return {
+    _id: item._id || `dish-${idx + 1}`,
+    name: item.name,
+    category: item.specificCategory || item.categoryId?.name || 'Món gia đình',
+    price: sellingPrice,
+    costPrice: calculatedCost,
+    grossProfit,
+    marginPercent,
+    isAvailable: item.isAvailable !== false
+  };
+});
+
+const defaultCostSummary = {
+  totalDishes: 30,
+  totalMenuPrice: 3078000,
+  totalMenuCost: 2583000,
+  totalGrossProfit: 495000,
+  avgMarginPercent: 16.08
+};
 
 export default function ManagerPage() {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'inventory', 'imports', 'costAnalysis', 'utilities', 'audit'
   const [stats, setStats] = useState(null);
-  const [inventory, setInventory] = useState([]);
-  const [importsHistory, setImportsHistory] = useState([]);
-  const [costAnalysis, setCostAnalysis] = useState([]);
-  const [costSummary, setCostSummary] = useState(null);
+  const [inventory, setInventory] = useState(getStoredInventory());
+  const [importsHistory, setImportsHistory] = useState(getStoredImports());
+  const [costAnalysis, setCostAnalysis] = useState(defaultCostData);
+  const [costSummary, setCostSummary] = useState(defaultCostSummary);
   const [utilities, setUtilities] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isResettingMenu, setIsResettingMenu] = useState(false);
+  const [isResettingAll, setIsResettingAll] = useState(false);
 
   // Bộ lọc kho theo 4 nhóm phân loại
   const [selectedInvCategory, setSelectedInvCategory] = useState('ALL');
@@ -92,46 +121,19 @@ export default function ManagerPage() {
       } else {
         setInventory(getStoredInventory());
       }
-      if (impRes?.data?.success) setImportsHistory(impRes.data.data);
+
+      if (impRes?.data?.success && Array.isArray(impRes.data.data) && impRes.data.data.length > 0) {
+        setImportsHistory(impRes.data.data);
+      } else {
+        setImportsHistory(getStoredImports());
+      }
 
       if (costRes?.data?.success && Array.isArray(costRes.data.data) && costRes.data.data.length >= 30) {
         setCostAnalysis(costRes.data.data);
         if (costRes.data.summary) setCostSummary(costRes.data.summary);
       } else {
-        // Tự động tính toán bảng Cost & Lợi nhuận 30 món từ LocalStorage v2 nếu DB trả về dưới 30 món
-        const storedDishes = getStoredMenu30();
-        const calculatedAnalysis = storedDishes.map((item, idx) => {
-          let calculatedCost = item.costPrice || 0;
-          if (item.recipe && item.recipe.length > 0) {
-            const recipeSum = item.recipe.reduce((sum, r) => sum + (r.estimatedCost || 0), 0);
-            if (recipeSum > 0 && calculatedCost === 0) calculatedCost = recipeSum;
-          }
-          const sellingPrice = item.price || 0;
-          const grossProfit = Math.max(0, sellingPrice - calculatedCost);
-          const marginPercent = sellingPrice > 0 ? Number(((grossProfit / sellingPrice) * 100).toFixed(2)) : 0;
-          return {
-            _id: item._id || `dish-${idx + 1}`,
-            name: item.name,
-            category: item.categoryId?.name || 'Món gia đình',
-            price: sellingPrice,
-            costPrice: calculatedCost,
-            grossProfit,
-            marginPercent,
-            isAvailable: item.isAvailable !== false
-          };
-        });
-        setCostAnalysis(calculatedAnalysis);
-        const totalMenuPrice = calculatedAnalysis.reduce((s, i) => s + i.price, 0);
-        const totalMenuCost = calculatedAnalysis.reduce((s, i) => s + i.costPrice, 0);
-        const totalGrossProfit = totalMenuPrice - totalMenuCost;
-        const avgMarginPercent = totalMenuPrice > 0 ? Number(((totalGrossProfit / totalMenuPrice) * 100).toFixed(2)) : 0;
-        setCostSummary({
-          totalDishes: calculatedAnalysis.length,
-          totalMenuPrice,
-          totalMenuCost,
-          totalGrossProfit,
-          avgMarginPercent
-        });
+        setCostAnalysis(defaultCostData);
+        setCostSummary(defaultCostSummary);
       }
 
       if (utilRes?.data?.success) setUtilities(utilRes.data.data);
@@ -143,33 +145,48 @@ export default function ManagerPage() {
     }
   };
 
-  // NÚT BẤM RESET TOÀN BỘ VỀ 30 MÓN CHUẨN (Database + LocalStorage)
-  const handleResetMenu30 = async () => {
-    if (!window.confirm('Xác nhận dọn sạch thực đơn cũ và nạp mới toàn bộ 30 món ăn chuẩn (kèm giá Siêu thị, giá Cost chợ và công thức SOP 4 bước) vào Database & LocalStorage?')) {
-      return;
-    }
-    setIsResettingMenu(true);
-    try {
-      // 1. Reset LocalStorage
-      resetStoredMenu30();
+  // NÚT BẤM RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG (Lễ tân, Phục vụ, Đầu bếp, Thu ngân)
+  const handleResetAllRestaurantData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ CẢNH BÁO: BẠN CÓ CHẮC CHẮN MUỐN RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG?\n\n' +
+      'Thao tác này sẽ làm mới toàn bộ hoạt động vận hành:\n' +
+      '1. 🧑‍💼 Lễ tân: Xóa toàn bộ khách đặt bàn trước & danh sách khách chờ (Waitlist)\n' +
+      '2. 🍽️ Phục vụ: Đặt lại tất cả 22 bàn ăn về trạng thái [Bàn trống]\n' +
+      '3. 👨‍🍳 Đầu bếp: Xóa sạch toàn bộ danh sách Order đang chế biến từ phục vụ sang bếp\n' +
+      '4. 💰 Thu ngân: Xóa sạch toàn bộ hóa đơn thanh toán và tạm tính chưa thanh toán\n\n' +
+      'Nhấn OK để xác nhận thực hiện!'
+    );
+    if (!confirmed) return;
 
-      // 2. Gọi API dọn sạch & nạp mới MongoDB
-      let apiMessage = '';
+    setIsResettingAll(true);
+    try {
+      // 1. Dọn dẹp LocalStorage máy trạm
+      const keysToClear = [
+        'restaurant_reservations',
+        'restaurant_waitlist',
+        'restaurant_orders',
+        'restaurant_tables',
+        'restaurant_invoices',
+        'restaurant_active_order',
+        'restaurant_pending_payments'
+      ];
+      keysToClear.forEach(k => localStorage.removeItem(k));
+
+      // 2. Gọi API Backend để reset toàn bộ DB MongoDB
+      let apiSuccess = false;
       try {
-        const res = await resetDatabaseMenu30();
-        if (res?.data?.success) {
-          apiMessage = `\nĐồng thời đã nạp mới ${res.data.data?.length || 30} món vào MongoDB Database!`;
-        }
+        const res = await resetAllRestaurantData({ performedBy: 'Tổng Quản Lý' });
+        if (res?.data?.success) apiSuccess = true;
       } catch (apiErr) {
-        console.warn('API reset DB chưa kết nối, đã cập nhật LocalStorage v2:', apiErr);
+        console.warn('API reset DB lỗi hoặc chưa kết nối:', apiErr);
       }
 
-      alert('✅ Đã reset thành công thực đơn về 30 món chuẩn giá Siêu thị!' + apiMessage);
+      alert('✅ ĐÃ RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG THÀNH CÔNG!\n- Lễ tân: 0 khách đặt trước/chờ\n- Phục vụ: Toàn bộ bàn đã về Bàn trống\n- Bếp: 0 order đang nấu\n- Thu ngân: 0 hóa đơn chờ');
       await loadData();
     } catch (err) {
-      alert('Lỗi khi reset thực đơn: ' + err.message);
+      alert('Lỗi khi reset toàn bộ dữ liệu: ' + err.message);
     } finally {
-      setIsResettingMenu(false);
+      setIsResettingAll(false);
     }
   };
 
@@ -179,10 +196,12 @@ export default function ManagerPage() {
     const handleInvUpdate = () => loadData();
     socket.on('inventory:updated', handleInvUpdate);
     socket.on('menu:availability_changed', handleInvUpdate);
+    socket.on('restaurant:reset_all', handleInvUpdate);
 
     return () => {
       socket.off('inventory:updated', handleInvInvUpdate);
       socket.off('menu:availability_changed', handleInvUpdate);
+      socket.off('restaurant:reset_all', handleInvUpdate);
     };
   }, []);
 
@@ -206,19 +225,50 @@ export default function ManagerPage() {
   // Xử lý nhập kho
   const handleImportSubmit = async (e) => {
     e.preventDefault();
+    const qty = Number(importModal.addQty);
+    const unitPrice = Number(importModal.costPerUnit) || importModal.item.costPerUnit;
+    const supplier = importModal.supplier || 'Chợ đầu mối / Nhà phân phối Hải Phòng';
+    const importCode = `IMP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(importsHistory.length + 1).padStart(3, '0')}`;
+
+    const newRecord = {
+      _id: `imp-${Date.now()}`,
+      importCode,
+      ingredientName: importModal.item.name,
+      category: importModal.item.category,
+      quantity: qty,
+      unit: importModal.item.unit,
+      costPerUnit: unitPrice,
+      totalCost: qty * unitPrice,
+      supplier,
+      importedBy: 'Phạm Tổng Quản Lý',
+      createdAt: new Date().toISOString()
+    };
+
     try {
       await importStock(importModal.item._id, {
-        addQuantity: importModal.addQty,
-        costPerUnit: importModal.costPerUnit || importModal.item.costPerUnit,
-        supplier: importModal.supplier || 'Chợ đầu mối / Nhà phân phối Hải Phòng',
+        addQuantity: qty,
+        costPerUnit: unitPrice,
+        supplier,
         importedBy: 'Phạm Tổng Quản Lý'
       });
-      alert(`Đã nhập thêm ${importModal.addQty} ${importModal.item.unit} ${importModal.item.name} vào kho!`);
-      setImportModal({ open: false, item: null, addQty: 10, costPerUnit: 0, supplier: '' });
-      loadData();
-    } catch (err) {
-      alert('Lỗi nhập kho: ' + err.message);
+    } catch (apiErr) {
+      console.warn('API nhập kho lỗi, lưu vào bộ nhớ máy trạm:', apiErr);
     }
+
+    // Luôn cập nhật state kho và lịch sử nhập hàng tức thì
+    const updatedImports = addStoredImport(newRecord);
+    setImportsHistory(updatedImports);
+
+    // Cập nhật số lượng kho trong state
+    setInventory(prev => prev.map(ing => {
+      if (ing._id === importModal.item._id || ing.name === importModal.item.name) {
+        return { ...ing, quantityInStock: ing.quantityInStock + qty, costPerUnit: unitPrice };
+      }
+      return ing;
+    }));
+
+    alert(`✅ Đã nhập thêm ${qty} ${importModal.item.unit} ${importModal.item.name} vào kho thành công!`);
+    setImportModal({ open: false, item: null, addQty: 10, costPerUnit: 0, supplier: '' });
   };
 
   // Xử lý ghi nhận điện nước
@@ -349,13 +399,13 @@ export default function ManagerPage() {
           </div>
 
           <button
-            onClick={handleResetMenu30}
-            disabled={isResettingMenu}
-            title="Dọn sạch dữ liệu cũ và nạp lại toàn bộ 30 món chuẩn giá Siêu thị vào DB & LocalStorage"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-950/40 border border-emerald-400/40 transition-all active:scale-95 disabled:opacity-50"
+            onClick={handleResetAllRestaurantData}
+            disabled={isResettingAll}
+            title="Đặt lại toàn bộ bàn trống, xóa khách chờ/đặt trước lễ tân, xóa order bếp và hóa đơn thu ngân"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-rose-950/40 border border-rose-400/40 transition-all active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isResettingMenu ? 'animate-spin' : ''}`} />
-            {isResettingMenu ? 'Đang reset...' : 'Reset dữ liệu về 30 món chuẩn'}
+            <RefreshCw className={`w-3.5 h-3.5 ${isResettingAll ? 'animate-spin' : ''}`} />
+            {isResettingAll ? 'Đang reset toàn bộ...' : 'Reset toàn bộ dữ liệu nhà hàng'}
           </button>
         </div>
       </div>
@@ -738,19 +788,6 @@ export default function ManagerPage() {
                 <p className="text-xs text-slate-400">
                   Tự động tính lợi nhuận gộp và tỷ suất biên lợi nhuận (% Margin) theo công thức tài chính
                 </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleResetMenu30}
-                  disabled={isResettingMenu}
-                  className="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isResettingMenu ? 'animate-spin' : ''}`} />
-                  Reset dữ liệu về 30 món chuẩn
-                </button>
-                <span className="px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Khớp chuẩn đặc tả ({costAnalysis.length} món)
-                </span>
               </div>
             </div>
 

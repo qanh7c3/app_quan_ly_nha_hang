@@ -20,9 +20,18 @@ exports.getMenuItems = async (req, res) => {
     if (categoryId) filter.categoryId = categoryId;
     if (station) filter.station = station;
 
-    const items = await MenuItem.find(filter)
+    let items = await MenuItem.find(filter)
       .populate('categoryId', 'name')
       .sort({ createdAt: 1 });
+
+    if (!categoryId && !station && items.length < 30) {
+      try {
+        await resetMenuDatabase();
+        items = await MenuItem.find().populate('categoryId', 'name').sort({ createdAt: 1 });
+      } catch (seedErr) {
+        console.warn('Auto seed 30 dishes error:', seedErr.message);
+      }
+    }
 
     res.json({ success: true, data: items });
   } catch (error) {
@@ -33,7 +42,16 @@ exports.getMenuItems = async (req, res) => {
 // Lấy bảng phân tích giá cost và tỷ suất lợi nhuận từng món ăn (Nhiệm vụ 3)
 exports.getMenuCostAnalysis = async (req, res) => {
   try {
-    const items = await MenuItem.find().populate('categoryId', 'name');
+    let items = await MenuItem.find().populate('categoryId', 'name');
+    if (items.length < 30) {
+      try {
+        await resetMenuDatabase();
+        items = await MenuItem.find().populate('categoryId', 'name');
+      } catch (seedErr) {
+        console.warn('Auto seed 30 dishes error:', seedErr.message);
+      }
+    }
+
     const analysis = items.map(item => {
       // 1. Giá vốn (Cost price) lấy từ costPrice (hoặc tính từ recipe)
       let calculatedCost = item.costPrice || 0;

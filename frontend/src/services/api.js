@@ -51,7 +51,7 @@ export const getCurrentShift = () => api.get('/shifts/current');
 export const openShift = (data) => api.post('/shifts/open', data);
 export const closeShift = (data) => api.post('/shifts/close', data);
 
-// 7. Phân hệ Quản lý (Kho, Nhập hàng, Điện nước, Audit Log, Báo cáo)
+// 7. Phân hệ Quản lý (Kho, Nhập hàng, Điện nước, Audit Log, Báo cáo, Reset dữ liệu nhà hàng)
 export const getInventory = () => api.get('/inventory');
 export const importStock = (id, data) => api.patch(`/inventory/${id}/import`, data);
 export const getImportHistory = () => api.get('/inventory/imports');
@@ -59,5 +59,6 @@ export const getUtilities = () => api.get('/utilities');
 export const createUtilityRecord = (data) => api.post('/utilities', data);
 export const getAuditLogs = () => api.get('/audit-logs');
 export const getReportStats = () => api.get('/reports/overview');
+export const resetAllRestaurantData = (data) => api.post('/restaurant/reset-all', data);
 
 export default api;

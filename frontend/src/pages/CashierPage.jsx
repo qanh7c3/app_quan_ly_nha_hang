@@ -121,14 +121,25 @@ export default function CashierPage() {
       fetchHistoryData();
     };
 
+    const handleResetAll = () => {
+      setSelectedTable(null);
+      setPreview(null);
+      setOccupiedTables([]);
+      fetchBillingData();
+      fetchShiftData();
+      fetchHistoryData();
+    };
+
     socket.on('table:status_changed', handleUpdate);
     socket.on('order:created', handleUpdate);
     socket.on('payment:completed', handleUpdate);
+    socket.on('restaurant:reset_all', handleResetAll);
 
     return () => {
       socket.off('table:status_changed', handleUpdate);
       socket.off('order:created');
       socket.off('payment:completed');
+      socket.off('restaurant:reset_all', handleResetAll);
     };
   }, []);
 

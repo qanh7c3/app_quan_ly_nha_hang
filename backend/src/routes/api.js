@@ -11,6 +11,7 @@ const invCtrl = require('../controllers/inventoryController');
 const shiftCtrl = require('../controllers/shiftController');
 const auditCtrl = require('../controllers/auditLogController');
 const utilCtrl = require('../controllers/utilityController');
+const restaurantCtrl = require('../controllers/restaurantController');
 const { uploadCloud } = require('../config/cloudinary');
 
 // 1. Phân hệ Bàn ăn (Tables)
@@ -64,5 +65,8 @@ router.get('/utilities', utilCtrl.getUtilities);
 router.post('/utilities', utilCtrl.createUtilityRecord);
 router.get('/audit-logs', auditCtrl.getAuditLogs);
 router.get('/reports/overview', reportCtrl.getOverviewStats);
+
+// 8. Reset toàn bộ dữ liệu nhà hàng (Lễ tân, Phục vụ, Đầu bếp, Thu ngân)
+router.post('/restaurant/reset-all', restaurantCtrl.resetAllOperationalData);
 
 module.exports = router;

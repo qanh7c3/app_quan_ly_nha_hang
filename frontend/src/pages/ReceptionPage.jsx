@@ -57,11 +57,13 @@ export default function ReceptionPage() {
     socket.on('reservation:updated', () => fetchData());
     socket.on('waitlist:updated', () => fetchData());
     socket.on('table:status_changed', () => fetchData());
+    socket.on('restaurant:reset_all', () => fetchData());
 
     return () => {
       socket.off('reservation:updated');
       socket.off('waitlist:updated');
       socket.off('table:status_changed');
+      socket.off('restaurant:reset_all');
     };
   }, []);
 

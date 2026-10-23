@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Plus,
@@ -61,12 +61,14 @@ export default function TablesPage() {
     socket.on('order:created', handleUpdate);
     socket.on('payment:completed', handleUpdate);
     socket.on('reservation:updated', handleUpdate);
+    socket.on('restaurant:reset_all', handleUpdate);
 
     return () => {
       socket.off('table:status_changed', handleUpdate);
       socket.off('order:created', handleUpdate);
       socket.off('payment:completed');
       socket.off('reservation:updated');
+      socket.off('restaurant:reset_all', handleUpdate);
     };
   }, []);
 

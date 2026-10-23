@@ -74,12 +74,14 @@ export default function KitchenKDS() {
     socket.on('kitchen:item_status_changed', handleItemStatusChanged);
     socket.on('payment:completed', () => fetchOrders());
     socket.on('order:item_cancelled', () => fetchOrders());
+    socket.on('restaurant:reset_all', () => fetchOrders());
 
     return () => {
       socket.off('order:created', handleNewOrder);
       socket.off('kitchen:item_status_changed', handleItemStatusChanged);
       socket.off('payment:completed');
       socket.off('order:item_cancelled');
+      socket.off('restaurant:reset_all');
     };
   }, []);
 
