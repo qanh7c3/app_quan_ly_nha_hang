@@ -160,7 +160,7 @@ export default function Navbar({
                     <div className="flex items-center gap-1">
                       <p className="leading-none">{r.label}</p>
                       {isLockedForStaff && (
-                        <Lock className="w-3 h-3 text-amber-500 shrink-0" title="Cần mã PIN: 654321" />
+                        <Lock className="w-3 h-3 text-amber-500 shrink-0" title="Yêu cầu mã PIN bảo mật" />
                       )}
                     </div>
                     <p className="text-[9px] opacity-70 font-normal hidden sm:block mt-0.5">{r.subtitle}</p>

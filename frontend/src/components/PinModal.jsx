@@ -17,7 +17,7 @@ export default function PinModal({
     if (pin === '654321') {
       onSuccess();
     } else {
-      setErrorMessage('Mã PIN không chính xác! Vui lòng nhập đúng mã (Gợi ý: 654321)');
+      setErrorMessage('Mã PIN không chính xác! Vui lòng nhập lại.');
     }
   };
 
@@ -66,9 +66,6 @@ export default function PinModal({
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-center text-lg tracking-widest font-black focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1 text-center font-medium">
-              (Mã mặc định theo quy định nội bộ: <span className="font-bold text-amber-600">654321</span>)
-            </p>
           </div>
 
           {errorMessage && (
