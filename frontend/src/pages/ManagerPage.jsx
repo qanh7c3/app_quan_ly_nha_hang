@@ -24,7 +24,10 @@ import {
   Eye,
   Check,
   Flame,
-  ArrowUpRight
+  ArrowUpRight,
+  Lock,
+  KeyRound,
+  X
 } from 'lucide-react';
 import {
   getReportStats,
@@ -89,6 +92,9 @@ export default function ManagerPage() {
   // Modal Nhập kho & Đề xuất mua thêm
   const [importModal, setImportModal] = useState({ open: false, item: null, addQty: 10, costPerUnit: 0, supplier: '' });
 
+  // Modal Xác Thực Bảo Mật Reset Dữ Liệu Nhà Hàng (Mật khẩu: nhahang2026, PIN: 123456)
+  const [resetModal, setResetModal] = useState({ open: false, password: '', pin: '', error: '' });
+
   // Modal Ghi số điện nước
   const [utilityModal, setUtilityModal] = useState({
     open: false,
@@ -145,18 +151,24 @@ export default function ManagerPage() {
     }
   };
 
-  // NÚT BẤM RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG (Lễ tân, Phục vụ, Đầu bếp, Thu ngân)
-  const handleResetAllRestaurantData = async () => {
-    const confirmed = window.confirm(
-      '⚠️ CẢNH BÁO: BẠN CÓ CHẮC CHẮN MUỐN RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG?\n\n' +
-      'Thao tác này sẽ làm mới toàn bộ hoạt động vận hành:\n' +
-      '1. 🧑‍💼 Lễ tân: Xóa toàn bộ khách đặt bàn trước & danh sách khách chờ (Waitlist)\n' +
-      '2. 🍽️ Phục vụ: Đặt lại tất cả 22 bàn ăn về trạng thái [Bàn trống]\n' +
-      '3. 👨‍🍳 Đầu bếp: Xóa sạch toàn bộ danh sách Order đang chế biến từ phục vụ sang bếp\n' +
-      '4. 💰 Thu ngân: Xóa sạch toàn bộ hóa đơn thanh toán và tạm tính chưa thanh toán\n\n' +
-      'Nhấn OK để xác nhận thực hiện!'
-    );
-    if (!confirmed) return;
+  // Mở modal xác thực Reset toàn bộ dữ liệu nhà hàng
+  const handleOpenResetModal = () => {
+    setResetModal({ open: true, password: '', pin: '', error: '' });
+  };
+
+  // Thực hiện Reset toàn bộ sau khi nhập đúng Mật khẩu (nhahang2026) và Mã PIN (123456)
+  const handleExecuteResetAll = async (e) => {
+    e.preventDefault();
+    setResetModal(prev => ({ ...prev, error: '' }));
+
+    if (resetModal.password !== 'nhahang2026') {
+      setResetModal(prev => ({ ...prev, error: 'Mật khẩu xác thực không chính xác! (Mật khẩu đúng: nhahang2026)' }));
+      return;
+    }
+    if (String(resetModal.pin) !== '123456') {
+      setResetModal(prev => ({ ...prev, error: 'Mã PIN bảo mật không chính xác! (Mã PIN đúng: 123456)' }));
+      return;
+    }
 
     setIsResettingAll(true);
     try {
@@ -172,19 +184,29 @@ export default function ManagerPage() {
       ];
       keysToClear.forEach(k => localStorage.removeItem(k));
 
-      // 2. Gọi API Backend để reset toàn bộ DB MongoDB
+      // 2. Gọi API Backend gửi Mật khẩu và Mã PIN
       let apiSuccess = false;
       try {
-        const res = await resetAllRestaurantData({ performedBy: 'Tổng Quản Lý' });
+        const res = await resetAllRestaurantData({
+          password: resetModal.password,
+          pin: resetModal.pin,
+          performedBy: 'Tổng Quản Lý'
+        });
         if (res?.data?.success) apiSuccess = true;
       } catch (apiErr) {
+        if (apiErr.response?.data?.message) {
+          setResetModal(prev => ({ ...prev, error: apiErr.response.data.message }));
+          setIsResettingAll(false);
+          return;
+        }
         console.warn('API reset DB lỗi hoặc chưa kết nối:', apiErr);
       }
 
-      alert('✅ ĐÃ RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG THÀNH CÔNG!\n- Lễ tân: 0 khách đặt trước/chờ\n- Phục vụ: Toàn bộ bàn đã về Bàn trống\n- Bếp: 0 order đang nấu\n- Thu ngân: 0 hóa đơn chờ');
+      setResetModal({ open: false, password: '', pin: '', error: '' });
+      alert('✅ ĐÃ RESET TOÀN BỘ DỮ LIỆU NHÀ HÀNG THÀNH CÔNG!\n- Lễ tân: Đã xóa sạch khách chờ & khách đặt trước\n- Phục vụ: Toàn bộ 22 bàn ăn đã về trạng thái Bàn trống\n- Đầu bếp: 0 order đang nấu\n- Thu ngân: 0 hóa đơn chờ thanh toán');
       await loadData();
     } catch (err) {
-      alert('Lỗi khi reset toàn bộ dữ liệu: ' + err.message);
+      setResetModal(prev => ({ ...prev, error: 'Lỗi khi reset toàn bộ dữ liệu: ' + err.message }));
     } finally {
       setIsResettingAll(false);
     }
@@ -399,13 +421,13 @@ export default function ManagerPage() {
           </div>
 
           <button
-            onClick={handleResetAllRestaurantData}
+            onClick={handleOpenResetModal}
             disabled={isResettingAll}
-            title="Đặt lại toàn bộ bàn trống, xóa khách chờ/đặt trước lễ tân, xóa order bếp và hóa đơn thu ngân"
+            title="Đặt lại toàn bộ bàn trống, xóa khách chờ/đặt trước lễ tân, xóa order bếp và hóa đơn thu ngân (Yêu cầu Mật khẩu & Mã PIN)"
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg shadow-rose-950/40 border border-rose-400/40 transition-all active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isResettingAll ? 'animate-spin' : ''}`} />
-            {isResettingAll ? 'Đang reset toàn bộ...' : 'Reset toàn bộ dữ liệu nhà hàng'}
+            <Lock className="w-3.5 h-3.5" />
+            Reset toàn bộ dữ liệu nhà hàng
           </button>
         </div>
       </div>
@@ -1065,6 +1087,99 @@ export default function ManagerPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal Xác Thực Bảo Mật: Reset Toàn Bộ Dữ Liệu Nhà Hàng */}
+      {resetModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-rose-600 to-red-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Lock className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base">Xác Thực Bảo Mật Quản Lý</h3>
+                  <p className="text-[11px] text-rose-100">Reset toàn bộ dữ liệu hoạt động</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setResetModal({ open: false, password: '', pin: '', error: '' })}
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleExecuteResetAll} className="p-6 space-y-4">
+              <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-rose-900 text-xs leading-relaxed flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-black block mb-0.5 text-rose-700">CẢNH BÁO QUAN TRỌNG:</span>
+                  Thao tác này sẽ xóa khách chờ & đặt trước (Lễ tân), đưa 22 bàn về bàn trống (Phục vụ), xóa order đang nấu (Bếp) và xóa hóa đơn chờ (Thu ngân).
+                </div>
+              </div>
+
+              {resetModal.error && (
+                <div className="p-3 bg-red-100 text-red-700 text-xs font-bold rounded-xl border border-red-200">
+                  {resetModal.error}
+                </div>
+              )}
+
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-rose-600" /> Mật Khẩu Quản Lý:
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={resetModal.password}
+                    onChange={(e) => setResetModal({ ...resetModal, password: e.target.value, error: '' })}
+                    placeholder="Nhập mật khẩu..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 font-mono text-sm outline-hidden transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-rose-600" /> Mã PIN Bảo Mật (6 số):
+                  </label>
+                  <input
+                    type="password"
+                    maxLength={6}
+                    required
+                    value={resetModal.pin}
+                    onChange={(e) => setResetModal({ ...resetModal, pin: e.target.value, error: '' })}
+                    placeholder="Nhập mã PIN 6 số..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 font-mono text-sm tracking-widest outline-hidden transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setResetModal({ open: false, password: '', pin: '', error: '' })}
+                  className="px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResettingAll}
+                  className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-rose-600/30 active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isResettingAll ? 'animate-spin' : ''}`} />
+                  {isResettingAll ? 'Đang thực hiện...' : 'Xác Nhận Reset'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

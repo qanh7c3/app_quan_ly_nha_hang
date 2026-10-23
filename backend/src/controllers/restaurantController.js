@@ -10,8 +10,19 @@ const AuditLog = require('../models/AuditLog');
 // 2. Phục vụ (Bàn ăn đang có khách -> Đặt lại toàn bộ về Bàn trống)
 // 3. Đầu bếp (Danh sách Order đang chế biến từ phục vụ sang bếp)
 // 4. Thu ngân (Hóa đơn và các giao dịch thanh toán)
+// Yêu cầu Mật khẩu: nhahang2026 và Mã PIN: 123456
 exports.resetAllOperationalData = async (req, res) => {
   try {
+    const { password, pin, performedBy } = req.body;
+
+    // Xác thực bảo mật: Mật khẩu & Mã PIN
+    if (password !== 'nhahang2026' || String(pin) !== '123456') {
+      return res.status(401).json({
+        success: false,
+        message: 'Mật khẩu hoặc mã PIN bảo mật không chính xác! Không được phép reset dữ liệu nhà hàng.'
+      });
+    }
+
     // 1. Lễ tân: Xóa sạch danh sách đặt bàn & khách chờ (Waitlist)
     await Promise.all([
       Reservation.deleteMany({}),
