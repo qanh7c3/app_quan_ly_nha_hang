@@ -1,39 +1,13 @@
-const STORAGE_KEY = 'restaurant_user_accounts_v1';
+const STORAGE_KEY = 'restaurant_user_accounts_v2';
 const AUTH_USER_KEY = 'cloud_rms_auth_user';
 const TOKEN_KEY = 'cloud_rms_token';
 
 const DEFAULT_ACCOUNTS = [
   {
-    _id: 'acc_owner_1',
-    name: 'Nguyễn Văn Chủ',
-    username: 'admin',
-    password: '123',
-    accountType: 'owner',
-    position: 'owner',
-    plan: 'enterprise',
-    planName: 'Gói Chuỗi Doanh Nghiệp (Enterprise) - 1.899.000 đ/tháng',
-    approvalStatus: 'approved',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: 'acc_manager_1',
-    name: 'Phạm Tổng Quản Lý',
-    username: 'quanly',
-    password: '123',
-    accountType: 'staff',
-    position: 'manager',
-    plan: null,
-    planName: '',
-    approvalStatus: 'approved',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: 'acc_reception_1',
-    name: 'Hoàng Lễ Tân',
-    username: 'letan',
-    password: '123',
+    _id: 'acc_qanh1',
+    name: 'Lễ Tân QAnh',
+    username: 'qanh1',
+    password: '2006',
     accountType: 'staff',
     position: 'reception',
     plan: null,
@@ -43,23 +17,10 @@ const DEFAULT_ACCOUNTS = [
     createdAt: new Date().toISOString()
   },
   {
-    _id: 'acc_waiter_1',
-    name: 'Lê Văn Phục Vụ',
-    username: 'phucvu',
-    password: '123',
-    accountType: 'staff',
-    position: 'waiter',
-    plan: null,
-    planName: '',
-    approvalStatus: 'approved',
-    isActive: true,
-    createdAt: new Date().toISOString()
-  },
-  {
-    _id: 'acc_kitchen_1',
-    name: 'Nguyễn Bếp Trưởng',
-    username: 'daubep',
-    password: '123',
+    _id: 'acc_qanh2',
+    name: 'Đầu Bếp QAnh',
+    username: 'qanh2',
+    password: '2006',
     accountType: 'staff',
     position: 'kitchen',
     plan: null,
@@ -69,14 +30,27 @@ const DEFAULT_ACCOUNTS = [
     createdAt: new Date().toISOString()
   },
   {
-    _id: 'acc_cashier_1',
-    name: 'Trần Thu Ngân',
-    username: 'thungan',
-    password: '123',
+    _id: 'acc_qanh3',
+    name: 'Quản Lý QAnh',
+    username: 'qanh3',
+    password: '2006',
     accountType: 'staff',
-    position: 'cashier',
+    position: 'manager',
     plan: null,
     planName: '',
+    approvalStatus: 'approved',
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    _id: 'acc_qanh4',
+    name: 'Chủ Nhà Hàng QAnh',
+    username: 'qanh4',
+    password: '2006',
+    accountType: 'owner',
+    position: 'owner',
+    plan: 'enterprise',
+    planName: 'Gói Chuỗi Doanh Nghiệp (Enterprise) - 1.899.000 đ/tháng',
     approvalStatus: 'approved',
     isActive: true,
     createdAt: new Date().toISOString()
@@ -91,7 +65,7 @@ export const getStoredAccounts = () => {
       return DEFAULT_ACCOUNTS;
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.some((a) => a.username === 'qanh1')) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
       return DEFAULT_ACCOUNTS;
     }

@@ -29,15 +29,13 @@ const seedDatabase = async () => {
     await Invoice.deleteMany({});
     console.log('🧹 Đã dọn dẹp dữ liệu cũ');
 
-    // 1. Tạo 5 tài khoản mẫu cho 5 vai trò
     await User.create([
-      { name: 'Hoàng Lễ Tân', email: 'letan@nhahang.com', password: 'password123', role: 'waiter', phone: '0901111111' },
-      { name: 'Lê Văn Phục Vụ', email: 'phucvu@nhahang.com', password: 'password123', role: 'waiter', phone: '0902222222' },
-      { name: 'Nguyễn Bếp Trưởng', email: 'bep@nhahang.com', password: 'password123', role: 'kitchen', phone: '0903333333' },
-      { name: 'Trần Thu Ngân', email: 'thungan@nhahang.com', password: 'password123', role: 'cashier', phone: '0904444444' },
-      { name: 'Phạm Tổng Quản Lý', email: 'quanly@nhahang.com', password: 'password123', role: 'admin', phone: '0905555555' }
+      { name: 'Lễ Tân QAnh', username: 'qanh1', email: 'qanh1@nhahang.com', password: '2006', accountType: 'staff', position: 'reception', approvalStatus: 'approved', isActive: true },
+      { name: 'Đầu Bếp QAnh', username: 'qanh2', email: 'qanh2@nhahang.com', password: '2006', accountType: 'staff', position: 'kitchen', approvalStatus: 'approved', isActive: true },
+      { name: 'Quản Lý QAnh', username: 'qanh3', email: 'qanh3@nhahang.com', password: '2006', accountType: 'staff', position: 'manager', approvalStatus: 'approved', isActive: true },
+      { name: 'Chủ Nhà Hàng QAnh', username: 'qanh4', email: 'qanh4@nhahang.com', password: '2006', accountType: 'owner', position: 'owner', plan: 'enterprise', planName: 'Gói Chuỗi Doanh Nghiệp (Enterprise) - 1.899.000 đ/tháng', approvalStatus: 'approved', isActive: true }
     ]);
-    console.log('👤 Đã tạo 5 tài khoản mẫu');
+    console.log('👤 Đã tạo 4 tài khoản chuẩn qanh1 - qanh4');
 
     // 2. KHO NGUYÊN LIỆU ĐẦY ĐỦ 4 NHÓM THEO ĐẶC TẢ
     const ingredients = [

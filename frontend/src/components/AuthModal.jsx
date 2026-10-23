@@ -121,15 +121,6 @@ export default function AuthModal({ onLoginSuccess }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleQuickFill = (u, p, type) => {
-    setAuthMode('login');
-    setAccountType(type);
-    setLoginUsername(u);
-    setLoginPassword(p);
-    setErrorMessage('');
-    setSuccessMessage('');
-  };
-
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
@@ -484,7 +475,7 @@ export default function AuthModal({ onLoginSuccess }) {
                     type="text"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder={accountType === 'owner' ? 'Ví dụ: admin' : 'Ví dụ: letan, phucvu, quanly...'}
+                    placeholder={accountType === 'owner' ? 'Ví dụ: qanh4' : 'Ví dụ: qanh1, qanh2, qanh3...'}
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                   />
@@ -528,53 +519,6 @@ export default function AuthModal({ onLoginSuccess }) {
                 )}
               </button>
 
-              <div className="pt-2 border-t border-slate-200">
-                <p className="text-[11px] font-bold text-slate-500 mb-2">Tài khoản demo sẵn dùng nhanh:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('admin', '123', 'owner')}
-                    className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Chủ (admin / 123)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('quanly', '123', 'staff')}
-                    className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Quản lý (quanly / 123)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('letan', '123', 'staff')}
-                    className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Lễ tân (letan / 123)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('phucvu', '123', 'staff')}
-                    className="px-2.5 py-1 bg-orange-100 hover:bg-orange-200 text-orange-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Phục vụ (phucvu / 123)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('daubep', '123', 'staff')}
-                    className="px-2.5 py-1 bg-rose-100 hover:bg-rose-200 text-rose-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Đầu bếp (daubep / 123)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('thungan', '123', 'staff')}
-                    className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-lg text-[10px] font-bold"
-                  >
-                    Thu ngân (thungan / 123)
-                  </button>
-                </div>
-              </div>
             </form>
           )}
 
