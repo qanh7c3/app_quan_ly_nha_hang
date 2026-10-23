@@ -475,7 +475,7 @@ export default function AuthModal({ onLoginSuccess }) {
                     type="text"
                     value={loginUsername}
                     onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder={accountType === 'owner' ? 'Ví dụ: qanh4' : 'Ví dụ: qanh1, qanh2, qanh3...'}
+                    placeholder="Nhập tên tk..."
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
                   />
