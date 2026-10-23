@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import ReceptionPage from './pages/ReceptionPage';
 import TablesPage from './pages/TablesPage';
 import KitchenKDS from './pages/KitchenKDS';
@@ -23,6 +24,9 @@ export default function App() {
         {activeRole === 'cashier' && <CashierPage />}
         {activeRole === 'manager' && <ManagerPage />}
       </main>
+
+      {/* Chân trang công nghệ chuẩn định dạng ảnh mẫu */}
+      <Footer setActiveRole={setActiveRole} />
     </div>
   );
 }

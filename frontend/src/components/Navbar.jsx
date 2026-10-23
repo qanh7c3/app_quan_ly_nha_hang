@@ -88,11 +88,15 @@ export default function Navbar({ activeRole, setActiveRole }) {
         <div className="flex items-center justify-between h-16 gap-3">
           {/* Logo & Tên nhà hàng */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-              <UtensilsCrossed className="w-5 h-5" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#0b1329] p-1 border border-amber-400/40 shadow-md shadow-amber-500/20 flex items-center justify-center overflow-hidden shrink-0">
+              <img
+                src="/assets/logo.png"
+                alt="Cloud Restaurant RMS"
+                className="w-full h-full object-contain rounded-xl"
+              />
             </div>
-            <div className="hidden lg:block">
-              <h1 className="font-extrabold text-sm text-slate-900 leading-tight">
+            <div className="hidden sm:block">
+              <h1 className="font-black text-sm tracking-wide bg-gradient-to-r from-amber-600 via-amber-700 to-yellow-700 bg-clip-text text-transparent leading-tight">
                 Cloud Restaurant RMS
               </h1>
               <p className="text-[10px] text-slate-500 font-semibold">Hệ Thống Quản Trị Đa Phân Hệ</p>
