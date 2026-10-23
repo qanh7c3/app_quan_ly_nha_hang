@@ -124,7 +124,7 @@ export const addLocalStaffAccount = (data) => {
     position: data.position,
     plan: null,
     planName: '',
-    approvalStatus: 'pending',
+    approvalStatus: 'approved',
     isActive: true,
     createdAt: new Date().toISOString()
   };

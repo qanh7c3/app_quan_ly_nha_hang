@@ -55,16 +55,14 @@ exports.registerStaff = async (req, res) => {
       password,
       accountType: 'staff',
       position,
-      approvalStatus: 'pending',
+      approvalStatus: 'approved',
       isActive: true,
       email: `${cleanUsername}@nhahang.com`
     });
 
-    console.log(`[EMAIL DISPATCH] To: qanh7c3@gmail.com | Chủ đề: Yêu cầu cấp phép tài khoản nhân viên | Nhân viên: ${name} (${cleanUsername}) - Vị trí: ${position}`);
-
     res.status(201).json({
       success: true,
-      message: 'Đăng ký thành công! Đã gửi email xác nhận cấp phép tài khoản tới qanh7c3@gmail.com',
+      message: 'Đăng ký tài khoản nhân viên thành công!',
       data: {
         _id: user._id,
         name: user.name,
@@ -182,7 +180,7 @@ exports.login = async (req, res) => {
     if (user.approvalStatus === 'pending') {
       return res.status(403).json({
         success: false,
-        message: 'Tài khoản đang chờ duyệt từ Chủ nhà hàng (qanh7c3@gmail.com). Vui lòng đợi được kích hoạt!'
+        message: 'Tài khoản đang chờ duyệt từ Chủ nhà hàng. Vui lòng liên hệ để được kích hoạt!'
       });
     }
 

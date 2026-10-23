@@ -163,7 +163,7 @@ export default function AuthModal({ onLoginSuccess }) {
       }
 
       if (localAcc.approvalStatus === 'pending') {
-        setErrorMessage('Tài khoản đang chờ duyệt từ Chủ nhà hàng qua email qanh7c3@gmail.com!');
+        setErrorMessage('Tài khoản đang chờ duyệt từ Chủ nhà hàng!');
         setIsLoading(false);
         return;
       }
@@ -213,7 +213,7 @@ export default function AuthModal({ onLoginSuccess }) {
           });
         } catch (_) {}
 
-        setSuccessMessage('Đăng ký tài khoản nhân viên thành công! Đã gửi email xác nhận cho phép tạo tài khoản vào email: qanh7c3@gmail.com. Trạng thái hiện tại: Chờ Chủ nhà hàng phê duyệt.');
+        setSuccessMessage('Đăng ký tài khoản nhân viên thành công! Bạn có thể chuyển sang tab Đăng Nhập để đăng nhập ngay.');
         setStaffName('');
         setStaffUsername('');
         setStaffPassword('');
@@ -237,7 +237,7 @@ export default function AuthModal({ onLoginSuccess }) {
         position: staffPosition
       });
 
-      setSuccessMessage('Đăng ký tài khoản nhân viên thành công! Đã gửi email xác nhận cho phép tạo tài khoản vào email: qanh7c3@gmail.com. Vui lòng nhờ Chủ nhà hàng phê duyệt tài khoản để đăng nhập.');
+      setSuccessMessage('Đăng ký tài khoản nhân viên thành công! Bạn có thể chuyển sang tab Đăng Nhập để đăng nhập ngay.');
       setStaffName('');
       setStaffUsername('');
       setStaffPassword('');
@@ -524,13 +524,6 @@ export default function AuthModal({ onLoginSuccess }) {
 
           {authMode === 'register' && accountType === 'staff' && (
             <form onSubmit={handleRegisterStaffSubmit} className="space-y-4">
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-[11px] text-amber-900 flex items-start gap-2">
-                <Mail className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong>Quy trình đăng ký nhân viên:</strong> Sau khi nhập thông tin và gửi yêu cầu, hệ thống sẽ tự động gửi email xác nhận cho phép tạo tài khoản vào hộp thư <strong className="text-amber-800 underline">qanh7c3@gmail.com</strong>.
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Họ và tên nhân viên:</label>
                 <input
@@ -610,11 +603,11 @@ export default function AuthModal({ onLoginSuccess }) {
                 className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isLoading ? (
-                  <span>Đang gửi thông tin xác nhận...</span>
+                  <span>Đang xử lý đăng ký...</span>
                 ) : (
                   <>
-                    <Mail className="w-4 h-4" />
-                    <span>GỬI EMAIL XÁC NHẬN & ĐĂNG KÝ NHÂN VIÊN</span>
+                    <Briefcase className="w-4 h-4" />
+                    <span>ĐĂNG KÝ TÀI KHOẢN NHÂN VIÊN</span>
                   </>
                 )}
               </button>
